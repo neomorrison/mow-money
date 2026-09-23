@@ -65,6 +65,8 @@ export function buildMowJob(state: GameState, clientId: Id | null): MowJobSpec |
 export function computeQuality(spec: MowJobSpec, result: MowJobResult): QualityBreakdown { return todo('computeQuality'); }
 /** Apply a finished manual job: pay, satisfaction, wear, fuel, clock, XP, reputation. */
 export function completeManualJob(state: GameState, spec: MowJobSpec, result: MowJobResult): JobOutcome { return todo('completeManualJob'); }
+/** The player left the 3D job early: advance the clock (travel + setup + result.gameMinutes), apply wear and fuel, no pay, no rating. */
+export function abandonManualJob(state: GameState, spec: MowJobSpec, result: MowJobResult): ActionResult { return todo('abandonManualJob'); }
 /** Simulated owner job (after one manual job on the property). */
 export function autopilotJob(state: GameState, clientId: Id): JobOutcome | { error: string } { return todo('autopilotJob'); }
 

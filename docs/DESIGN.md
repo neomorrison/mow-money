@@ -148,9 +148,12 @@ Qraw = 100 * ( 0.50 * coverage^3
 Q = min(mower.qualityCap, Qraw * (0.88 + 0.12 * sharpness))
     - 60 * max(0, removedFraction - 0.40)       stress
     - 6 if the grass was wet
+    - 8 * max(0, |cutHeight - targetIn| - 0.5)      cut too high or too low (inches)
     - sum(damage.points)                        flower bed 6, gnome 4, sprinkler 5, toy 2, fence 5
 clamped to [0, 100]
 ```
+
+Coverage counts lawn cells whose final height is at most the deck height used + 0.5 in, so raising the deck on an overgrown lawn trades the stress penalty for the height mismatch penalty (and an easier next visit). Clients state their preferred height `targetIn` (2.5 to 3.5 in residential, 1.5 to 2.5 commercial, 0.5 on golf fairways).
 
 Coverage is cubed on purpose: 95 percent coverage gives 0.857 of that term, 90 percent gives 0.729. Missing a tenth of a lawn is what clients notice first.
 
