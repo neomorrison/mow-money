@@ -92,7 +92,10 @@ export class Blades {
           float height = pow(max(hIn, 0.0) / 3.0, 1.35) * 0.105 * aRand.z * ragged * fade * lawn;
           float ang = aRand.x * 6.2831853;
           vec2 wdir = vec2(cos(ang), sin(ang));
-          float wind = sin(uTime * 1.6 + bp.x * 0.7 + bp.y * 0.45) * 0.5 + sin(uTime * 2.9 + bp.x * 2.1) * 0.25;
+          // slow gusts rolling across the lawn (long wavelength, so neighbors move together) plus a
+          // small per-blade flutter; the old short-wavelength term read as twitching
+          float gust = sin(dot(bp, vec2(0.21, 0.11)) - uTime * 0.9) * 0.5 + 0.5;
+          float wind = (gust * gust - 0.3) * 0.8 + sin(uTime * 1.3 + aRand.x * 6.2831853) * 0.08;
           vec2 shagLean = (vec2(mmHash(bp * 3.1), mmHash(bp * 5.7)) - 0.5) * 0.9 * (1.0 - cut);
           vec2 bend = lean * 0.75 + shagLean + vec2(0.7, 0.35) * wind * 0.18;
           float t = position.y;

@@ -156,7 +156,7 @@ export class MowJob {
     this.tutorial = new Tutorial(spec.tutorial);
     this.deckP = {
       x: 0, z: 0, prevX: 0, prevZ: 0, heading: 0, width: m.deckWidth ?? 1, length: Math.min(0.7, Math.max(0.4, (m.deckWidth ?? 1) * 0.4)),
-      deckIn: 3, maxGrassIn: m.maxGrassIn ?? 6, stripeVis: this.stripeVis, bagActive: false, mulching: !!m.mulching,
+      deckIn: 3, maxGrassIn: m.maxGrassIn ?? 6, stripeVis: this.stripeVis, layGrass: false, bagActive: false, mulching: !!m.mulching,
       discharge: m.id === 'reel' || m.id === 'gangreel' ? 0 : m.mulching ? 0.35 : 1, wet: spec.wet, frame: 0, time: 0, dt: 0,
       autoStripe: !!spec.autoStripe, bandW: Math.max(0.8, m.deckWidth ?? 1),
     };
@@ -308,6 +308,7 @@ export class MowJob {
   // ---------------------------------------------------------------- controls
   private start() {
     if (this.started) return;
+    if (this.hud.modalOpen) this.hud.closeModal();
     audio.unlock();
     this.started = true;
     this.startAudio();
@@ -445,6 +446,8 @@ export class MowJob {
     const running = this.started && !this.paused && !this.ended;
     this.input.pollPad();
     for (const a of this.input.takeActions()) this.onAction(a);
+    // driving from the start card begins the job (W, arrows, stick or joystick)
+    if (!this.started && !this.ended && (this.input.throttle !== 0 || this.input.stick.active)) this.start();
     const [ox, oy] = this.input.takeOrbit();
     if (ox || oy) this.rig.orbit(ox, oy);
     const z = this.input.takeZoom();
@@ -576,7 +579,10 @@ export class MowJob {
 
   private cutWithDeck(dt: number) {
     const m = this.mower, p = this.deckP, spec = this.spec;
-    p.x = m.x; p.z = m.z; p.prevX = m.prevX; p.prevZ = m.prevZ; p.heading = m.heading;
+    p.x = m.x; p.z = m.z; p.prevX = m.prevX; p.prevZ = m.prevZ;
+    // grass lies down in the direction of travel (backing up lays it the other way)
+    p.heading = m.v < -0.05 ? m.heading + Math.PI : m.heading;
+    p.layGrass = Math.abs(m.v) > 0.3;
     p.deckIn = this.deckHeights[this.deckIdx];
     p.bagActive = this.bagCap > 0 && this.bag < this.bagCap;
     p.frame = this.frame; p.time = this.active; p.dt = dt;

@@ -8,6 +8,7 @@ export interface DeckParams {
   deckIn: number;
   maxGrassIn: number;
   stripeVis: number;           // 0..1 how strongly the cut lays the grass over
+  layGrass: boolean;           // rolling at speed: the deck lays already-cut grass in the travel direction
   bagActive: boolean;
   mulching: boolean;
   discharge: number;           // 0..1 share of clippings thrown out the side chute
@@ -87,7 +88,9 @@ export function cutDeck(f: GrassField, p: DeckParams, out: DeckOutcome): void {
       f.passFrame[k] = p.frame;
       const hb = h[k];
       let changedC = false;
+      let didCut = false;
       if (hb > p.deckIn + 0.01 && newPass) {
+        didCut = true;
         let nh: number;
         if (hb > p.maxGrassIn) { nh = hb - (hb - p.deckIn) * 0.5; out.pushedOver++; }
         else nh = p.deckIn;
@@ -141,14 +144,18 @@ export function cutDeck(f: GrassField, p: DeckParams, out: DeckOutcome): void {
         if (p.bagActive) out.bagAdd += (before - f.leaves[k]) * cellA * 0.15;
         changedC = true;
       }
-      if (p.autoStripe) {
-        // bands across x, alternating direction: perfect stripes however the mower was driven
-        const band = Math.floor((f.x0 + (i + 0.5) * cs) / p.bandW);
-        f.heading[k] = (band & 1) === 0 ? 0 : Math.PI;
-      } else f.heading[k] = p.heading;
-      f.lean[k] = p.stripeVis;
-      f.cutBy[k] = 1;
-      f.markA(k);
+      // Only a fresh cut or a rolling deck sets the stripe direction. Pivoting or wiggling in place used to
+      // rewrite every cell under the deck each frame, so the grass swung back and forth with the steering.
+      if (didCut || p.layGrass || f.cutBy[k] !== 1) {
+        if (p.autoStripe) {
+          // bands across x, alternating direction: perfect stripes however the mower was driven
+          const band = Math.floor((f.x0 + (i + 0.5) * cs) / p.bandW);
+          f.heading[k] = (band & 1) === 0 ? 0 : Math.PI;
+        } else f.heading[k] = p.heading;
+        f.lean[k] = p.stripeVis;
+        f.cutBy[k] = 1;
+        f.markA(k);
+      }
       if (changedC) f.markC(k);
     }
   }

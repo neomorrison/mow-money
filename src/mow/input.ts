@@ -134,13 +134,26 @@ export class Input {
     // a controller shared with other apps: only listen while this page has focus
     if (typeof document !== 'undefined' && (document.hidden || (document.hasFocus && !document.hasFocus()))) return;
     const pads = typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : [];
+    // Only standard-mapped controllers: wheels, flight sticks and odd USB receivers report axes at
+    // arbitrary indices (triggers resting at -1), which steered the mower and camera on their own.
     let pad: Gamepad | null = null;
-    for (const p of pads) if (p && p.connected) { pad = p; break; }
+    for (const p of pads) if (p && p.connected && p.mapping === 'standard') { pad = p; break; }
     if (!pad) { if (this.usingPad) { this.usingPad = false; if (!this.stick.active) { this.stick.x = 0; this.stick.y = 0; } } return; }
-    const dz = (v: number) => (Math.abs(v) < 0.18 ? 0 : (v - Math.sign(v) * 0.18) / 0.82);
-    const lx = dz(pad.axes[0] ?? 0), ly = dz(pad.axes[1] ?? 0);
-    const rx = dz(pad.axes[2] ?? 0), ry = dz(pad.axes[3] ?? 0);
-    if (lx || ly || rx || ry || pad.buttons.some((b) => b.pressed)) { this.usingPad = true; this.onAnyInput?.(); }
+    // Radial dead zone per stick: worn sticks drift well past 0.18 on one axis.
+    const stick = (ax: number, ay: number): [number, number] => {
+      const m = Math.hypot(ax, ay);
+      if (m < 0.25) return [0, 0];
+      const k = Math.min(1, (m - 0.25) / 0.75) / m;
+      return [ax * k, ay * k];
+    };
+    const [lx, ly] = stick(pad.axes[0] ?? 0, pad.axes[1] ?? 0);
+    const [rx, ry] = stick(pad.axes[2] ?? 0, pad.axes[3] ?? 0);
+    // The pad takes over only after a deliberate press or push, never from resting noise.
+    if (pad.buttons.some((b) => b.pressed) || Math.hypot(lx, ly) > 0.4 || Math.hypot(rx, ry) > 0.4) {
+      if (!this.usingPad) this.onAnyInput?.();
+      this.usingPad = true;
+    }
+    if (!this.usingPad) return;
     if (this.usingPad && this.joyId < 0) {
       this.stick.x = lx; this.stick.y = -ly;
       this.stick.active = !!(lx || ly);

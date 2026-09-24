@@ -15,7 +15,7 @@ function field(grassIn = 4.5, leaves = 0) {
 function deck(f: GrassField, over: Partial<DeckParams> = {}): DeckParams {
   return {
     x: 0, z: 0, prevX: 0, prevZ: 0, heading: 0, width: 1.2, length: 0.5, deckIn: 3, maxGrassIn: 7,
-    stripeVis: 0.8, bagActive: false, mulching: true, discharge: 0.35, wet: false, autoStripe: false, bandW: 1.2, frame: 1, time: 0, dt: 1 / 60, ...over,
+    stripeVis: 0.8, layGrass: true, bagActive: false, mulching: true, discharge: 0.35, wet: false, autoStripe: false, bandW: 1.2, frame: 1, time: 0, dt: 1 / 60, ...over,
   };
 }
 

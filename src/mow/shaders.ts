@@ -122,9 +122,11 @@ vec3 mmLawn(vec2 wp, float h, vec2 lean, float cut, vec3 viewDir) {
   // freshly cut: fine even texture, dull blades leave pale torn tips
   col *= mix(1.0, 0.9 + 0.16 * n4 * (0.6 + 0.4 * n3), cut);
   col = mix(col, vec3(0.78, 0.74, 0.55), cut * uDull * 0.22 * n3);
-  // stripes: grass bent away from the viewer reflects more light
-  vec2 vd = normalize(viewDir.xz + 1e-5);
-  float s = dot(lean, vd);
+  // stripes: grass bent away from the viewer reflects more light. Scale by how grazing the view is
+  // (sin of the angle from vertical) instead of normalizing the horizontal part: near the point under
+  // the camera that direction is undefined and tiny camera moves flipped stripes light and dark every frame.
+  vec2 vd = viewDir.xz / max(length(viewDir), 1e-3);
+  float s = dot(lean, vd) * smoothstep(0.05, 0.45, length(vd));
   col *= 1.0 + uStripeGain * s;
   col = mix(col, col * vec3(0.93, 1.0, 0.86), max(0.0, s) * uStripeGain * 0.8);
   return col;
