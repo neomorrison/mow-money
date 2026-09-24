@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <title>Pitch harness</title>
+  <!-- Asset URLs in src/data/assets.ts are relative to the site root (./models, ./img, ./audio). -->
+  <base href="../" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; height: 100%; background: #bfe3f5; font-family: 'Nunito', sans-serif; color: #2f3a2c; overflow: hidden; }
+    #app { position: fixed; inset: 0; }
+    .h-bar { position: fixed; right: 6px; top: 4px; max-width: 60%; z-index: 2000; opacity: .85; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; font-size: 11px; }
+    .h-bar a, .h-bar span { background: #fff8e6; border: 2px solid #2f3a2c; border-radius: 999px; padding: 3px 10px; color: #2f3a2c; text-decoration: none; font-weight: 800; }
+    @media (max-width: 700px) { .h-bar { display: none; } }
+    .h-street { position: fixed; inset: 0; background:
+      linear-gradient(180deg, #bfe3f5 0 55%, #8fbf5a 55% 78%, #d8d3c8 78% 84%, #5a5d63 84%); }
+    .h-result { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); background: #fff8e6; border: 3px solid #2f3a2c; border-radius: 20px; padding: 18px 22px; box-shadow: 0 6px 0 #2f3a2c; max-width: 520px; width: calc(100% - 32px); }
+    .h-result h2 { font-family: 'Baloo 2', sans-serif; margin: 0 0 6px; }
+    .h-result pre { white-space: pre-wrap; font-size: 12px; background: #fff; border-radius: 10px; padding: 8px; border: 2px solid #e6d6ad; }
+    .h-debug { position: fixed; left: 8px; top: 8px; z-index: 3000; background: rgba(0,0,0,.72); color: #fff; font: 12px/1.4 monospace; padding: 6px 8px; border-radius: 8px; pointer-events: none; white-space: pre; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/harness/pitch.ts"></script>
+</body>
+</html>

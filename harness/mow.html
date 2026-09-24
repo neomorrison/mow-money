@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <!-- asset URLs in the game are relative to the site root (./models, ./audio, ./img) -->
+  <base href="../" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <title>Mow Money: mowing job harness</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; height: 100%; background: #eef6e4; font-family: 'Nunito', system-ui, sans-serif; color: #1c3a24; overscroll-behavior: none; }
+    #host { position: fixed; inset: 0; }
+    #result { position: fixed; inset: 0; overflow: auto; background: #eef6e4; padding: 24px; display: none; }
+    #result h1 { font-family: 'Baloo 2'; margin: 0 0 8px; }
+    #result pre { background: #fffaf0; border-radius: 14px; padding: 14px; font-size: 13px; overflow: auto; }
+    #result .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+    #result button { font: inherit; font-weight: 800; border: 0; border-radius: 14px; padding: 12px 20px; background: #4fa556; color: #fff; cursor: pointer; }
+    #err { position: fixed; left: 12px; bottom: 12px; right: 12px; background: #fde4df; color: #a1301f; padding: 10px 14px; border-radius: 12px; display: none; font-weight: 700; white-space: pre-wrap; z-index: 50; }
+  </style>
+</head>
+<body>
+  <div id="host"></div>
+  <div id="result"></div>
+  <div id="err"></div>
+  <script type="module" src="/harness/mow.ts"></script>
+</body>
+</html>

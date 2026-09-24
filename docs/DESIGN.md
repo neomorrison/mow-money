@@ -77,7 +77,7 @@ Market fair price per mow for a lawn of `A` square feet (lawn only, not the lot)
 ```
 fair(A) = 20 + 0.052 * A^0.725              (weekly service)
 biweekly = fair * 1.20                      (taller grass, fewer visits)
-commercial = fair * 1.15
+commercial = fair * 1.15                    (parks too; golf fairways fair * 2.5, mowed like three visits)
 ```
 
 Examples: 3,800 sq ft = $41, 11,000 = $64, 22,000 = $93, 43,560 (1 acre) = $140. Sublinear on purpose: big lawns are cheaper per square foot, matching real pricing and rewarding productive equipment.
@@ -99,7 +99,11 @@ patience   = archetype.patience + {-1, 0, +1}                negotiation rounds
 anchor     = archetype.anchor + U(-0.05, 0.05)               opening counter as a fraction of R
 ```
 
-Answer probability when you knock depends on the archetype's `home` profile (day 08:00 to 17:00, evening 17:00 to 19:30) and on Saturday (x1.3, capped at 0.95). A knock costs 4 minutes (2 with the Door Pro perk).
+Answer probability when you knock depends on the archetype's `home` profile (day 08:00 to 17:00, evening 17:00 to 19:30) and on weekends (x1.3, capped at 0.95). Warm leads answer at least 85 percent of the time. Before 09:00 the chance is halved. A knock costs 4 minutes (2 with the Door Pro perk).
+
+Not everyone who opens the door wants a service. Before the pitch starts, a DIY owner turns you away with `pNo = clamp(0.65 - 0.12 * (h - 3), 0.10, 0.70)` where `h` is their grass height (tall lawns are the best prospects), a rival's client with 0.40 (budget rival) or 0.55 (premium rival), and warm leads or HOA-letter houses with 0.05. A refusal makes the house cold for 3 days. A rejected pitch blocks a second pitch the same day.
+
+`PitchContext.house.V` already includes the situational need multipliers above (over 5.5 in, HOA letter).
 
 ## 8. Negotiation
 
@@ -157,9 +161,9 @@ Coverage counts lawn cells whose final height is at most the deck height used + 
 
 Coverage is cubed on purpose: 95 percent coverage gives 0.857 of that term, 90 percent gives 0.729. Missing a tenth of a lawn is what clients notice first.
 
-Star rating for reputation: `stars = clamp(1 + 4 * (Q - 45) / 50, 1, 5)`.
+Star rating for reputation: `stars = clamp(1 + 4 * (Q - 40) / 50, 1, 5)` (Q 90 is five stars, Q 80 is 4.2, Q 70 is 3.4).
 
-**Autopilot** (owner, simulated job): allowed after one manual job on the property. `Q ~ Normal(min(cap, bestManualQ - 3 + perkBonus), 4)` with the same stress and wet penalties. Crew jobs: `mu = min(cap, 50 + 45 * skill/100 * moraleFactor)`, `sigma = 12 - 8 * skill/100`, `moraleFactor = 0.85 + 0.15 * morale/100`.
+**Autopilot** (owner, simulated job): allowed after one manual job on the property. `Q ~ Normal(min(cap, bestManualQ - 3 + perkBonus), 4)` with the same stress and wet penalties. Crew jobs: `mu = min(cap, 58 + 40 * skill/100 * moraleFactor)` (+4 with a crew lead, +3 with a Perfectionist, -8 without a trimmer, -4 without a blower, -10 * (1 - sharpness), -10 * max(0, 0.7 - stripe) for clients who want stripes), `sigma = 12 - 8 * skill/100`, `moraleFactor = 0.85 + 0.15 * morale/100`, where skill weights a crew lead double. Autopilot and crews raise the deck on overgrown lawns to stay under the one-third rule and take the height mismatch penalty instead.
 
 ## 10. Satisfaction, churn, referrals, reputation
 
@@ -190,11 +194,13 @@ Referrals: each week each client has `p = 0.10 * clamp((S - 72) / 28, 0, 1) * (1
 
 Tips: when `Q >= E + 8`, `P(tip) = min(0.6, 0.25 + 0.02 * (Q - E - 8))`, amount `price * U(0.10, 0.25) * archetype.tipMult`.
 
-Reputation is a Bayesian average of recent stars with a 3.0 prior worth 8 ratings and recency weight 0.98 per rating, over the last 60 ratings:
+Reputation is a Bayesian average of recent stars with a 3.0 prior worth 5 ratings and recency weight 0.98 per rating, over the last 60 ratings:
 
 ```
-rep = (8 * 3.0 + sum(w_j * stars_j)) / (8 + sum(w_j)),   w_j = 0.98^age_j
+rep = (5 * 3.0 + sum(w_j * stars_j)) / (5 + sum(w_j)),   w_j = 0.98^age_j
 ```
+
+A steady Q of 80 settles near 4.05, Q 85 near 4.45, Q 90 near 4.75.
 
 ## 11. Leads and marketing
 
@@ -209,12 +215,14 @@ See `src/data/equipment.ts` for the full table. Productivity:
 ```
 rate (m2 per game minute) = deckWidth * speed * 0.75 / TIME_SCALE
 jobMinutes = 6 setup + area / rate + trimMinutes + blowMinutes
-trimMinutes = 3 + area / 250 (halved with a pro trimmer), blowMinutes = 2 + hardscape / 120
+trimMinutes = (3 + area / 250) * tool   (hand shears 1.6, string trimmer 1, pro trimmer 0.5, none 2.5)
+blowMinutes = (2 + hardscape / 120) * tool   (push broom 1.5, blower 1, backpack 0.7, none 2)
+mowing takes x1.5 when the grass is taller than the mower's maxGrassIn, everything x1.15 on wet grass
 ```
 
 With two or more crew members, trimming and blowing overlap the mowing: `6 + max(mow, trim + blow)`.
 
-Wear: blade sharpness drops `0.12 * wearMult` per 1,000 m2 cut. Sharpening costs $6 and 15 minutes at the HQ, or is free overnight with a mechanic or sharpening station. Condition drops 0.002 per engine hour. Breakdown chance per job `= (1 - reliability) * (1.5 - condition)`, repair `= 0.08 * price * (1.2 - condition)`, and the job is lost for the day.
+Wear: blade sharpness drops `0.05 * wearMult` per 1,000 m2 cut (exported as `BLADE_WEAR_PER_1000`). Sharpening costs $6 and 15 minutes at the HQ, or is free overnight with a mechanic or sharpening station. Condition drops 0.002 per engine hour. Breakdown chance per job `= (1 - reliability) * (1.5 - condition)`, repair `= 0.08 * price * (1.2 - condition)`, and the job is lost for the day.
 
 Fuel: `fuelGalPerHr * hours * fuelPrice`. Fuel price starts at $3.60 and moves by a weekly random walk (sigma 4 percent, clamped $2.80 to $5.20).
 
@@ -224,13 +232,15 @@ Transport: the vehicle's `capacity` must cover the `transportSize` of the carrie
 
 | id | name | lawn m2 | wealth | houses | km from HQ | unlock |
 |---|---|---|---|---|---|---|
-| maple | Maple Grove | 260 to 420 | 0.85 to 1.10 | 28 | 0.5 | start |
-| oak | Oak Hills | 480 to 900 | 1.00 to 1.25 | 30 | 3 | rep 3.4 and 4 clients |
-| willow | Willow Creek Estates | 1,400 to 3,000 | 1.30 to 1.80 | 20 | 7 | rep 3.9, a truck |
-| heritage | Heritage Hills | 2,500 to 5,000 | 1.80 to 2.60 | 14 | 12 | rep 4.4, a riding mower |
-| pinecrest | Pinecrest Business Park | 3,000 to 6,000 | commercial | 10 | 9 | rep 4.1, insurance, 1 crew |
-| parks | Civic Parks and Fields | 8,000 to 15,000 | municipal | 6 | 6 | rep 4.3, wide-area mower |
-| links | Fairway Links Golf Club | 20,000 | premium | 1 | 15 | rep 4.6, gang reel mower |
+| maple | Maple Grove | 260 to 420 | 0.85 to 1.10 | 48 | 0.5 | start |
+| oak | Oak Hills | 480 to 900 | 1.00 to 1.25 | 56 | 3 | rep 3.4 and 4 clients |
+| willow | Willow Creek Estates | 1,400 to 3,000 | 1.30 to 1.80 | 32 | 7 | rep 3.9, a truck |
+| heritage | Heritage Hills | 2,500 to 5,000 | 1.80 to 2.60 | 24 | 12 | rep 4.3, a riding mower |
+| pinecrest | Pinecrest Business Park | 3,000 to 6,000 | commercial | 14 | 9 | rep 4.0, insurance, 1 crew |
+| parks | Civic Parks and Fields | 8,000 to 15,000 | municipal | 8 | 6 | rep 4.2, wide-area mower |
+| links | Fairway Links Golf Club | 20,000 | premium | 1 | 15 | rep 4.5, gang reel mower |
+
+Neighborhoods are big on purpose: a hard-working owner can serve about 100 weekly lawns alone, so crews only pay off once the market is larger than one person.
 
 Commercial, municipal and golf properties are won through bids (section 15), not door knocking.
 
@@ -251,7 +261,7 @@ Roles, market wage per hour for skill `s` in [0, 100]:
 
 Paid 10 hours per workday. Crews are a vehicle, a mower, a trimmer and a blower plus one or more members, one of them a lead or the owner. Crew daily capacity is 600 minutes minus travel, jobs sorted by overdue first, then by neighborhood.
 
-Morale drifts 10 percent per day toward `60 + 1.2 * (wage - marketWage) + 10 * recentRaise - 8 * overtimeDays`. Weekly quit chance `0.25 / (1 + exp((morale - 30) / 6))`. No-show chance per day `(1 - reliability) * 0.5`. Skill grows `(100 - skill) * 0.004` per job (x2 with the Trainer perk).
+Morale drifts 10 percent per day toward `60 + 1.2 * (wage - marketWage) + 10 * recentRaise - 8 * overtimeDays`. Weekly quit chance `0.25 / (1 + exp((morale - 30) / 6))`. No-show chance per day `(1 - reliability) * 0.5`. Skill grows `(100 - skill) * 0.0005` per job (x2 with the Trainer perk; sales reps grow 4x that per signed client), so a crew member closes about a third of the gap to 100 in a busy season. Wages follow skill, so good people ask for raises.
 
 Sales rep daily: 30 knocks, answers at the neighborhood's average rate, close chance `0.08 + 0.22 * skill/100 * rep/5 * remainingShare`, price `V * (0.88 + 0.20 * skill/100) * LogNormal(0, 0.05)`.
 
@@ -261,7 +271,7 @@ The hiring board refreshes every Monday with 4 to 6 candidates (portrait, traits
 
 Each town has two rivals, a budget outfit (price index 0.85, quality 68) and a premium one (1.15, 86). 20 to 35 percent of each residential neighborhood starts with a rival. Rival clients start at T -0.10 but the "beat your current service" point works on the budget rival. Lost clients go to a rival (60 percent) or back to DIY. A rival active in a neighborhood multiplies churn by 1.3 for clients below S = 55.
 
-Bids: each unlocked commercial or municipal neighborhood posts a request for proposal with weekly probability 0.3 (golf: one contract a year, posted in spring). Term 12 to 26 weeks, weekly service, closes in 3 days. Each rival bids `fairCommercial * rival.priceIndex * LogNormal(0, 0.08)`. The award goes to the lowest `bid / (1 + 0.12 * (rep - 3.5))`. A won contract terminates after three consecutive services with Q < 70.
+Bids: each unlocked commercial or municipal neighborhood posts a request for proposal with weekly probability 0.3 (golf: one 12-week contract a year, posted in spring). Term 12 to 26 weeks (counted on Sundays outside winter), weekly service, closes in 3 days. Each rival bids `fairCommercial * rival.priceIndex * LogNormal(0, 0.08)`. The award goes to the lowest `bid / (1 + 0.12 * (rep - 3.5))`. A won contract terminates after three consecutive services with Q < 70.
 
 ## 16. Finance
 
@@ -269,7 +279,9 @@ Bids: each unlocked commercial or municipal neighborhood posts a request for pro
 - Insurance: required before the first hire or commercial bid. $30 per week plus $10 per employee. Damage claims above a $100 deductible are covered.
 - Taxes: at each season end, 15 percent of positive season profit.
 - Book value: purchase price * 0.92 per season owned. Resale at 80 percent of book value.
-- Valuation: `max(0, annualProfit) * (2 + 0.5 * rep + retention) + bookValue + cash - debt`, where annual profit extrapolates the last 28 days and retention is the share of clients kept over the last 28 days.
+- Valuation: `max(0, annualProfit) * (2 + 0.5 * rep + retention) + bookValue + cash - debt`, where annual profit is the operating net of the trailing 98 days once a full year of history exists (before that, the last 28 days extrapolated to 98), and retention is the share of clients kept over the last 28 days.
+- Operating profit excludes equipment purchases and sales, loan principal and branch costs. Loan interest counts.
+- Negative cash costs an overdraft fee of 0.1 percent a day (at least $2).
 
 ## 17. Owner progression
 
@@ -299,10 +311,20 @@ XP: a manual job gives `Q / 5`, an autopilot job `Q / 20`, a deal 25, a won bid 
 
 ## 19. Legacy (prestige)
 
-"Sell the company" at any time after year 1 converts valuation into legacy points `floor(sqrt(valuation / 10000))`. Legacy perks carry into new games: starting cash, starting reputation, an extra skill point, cheaper first truck, start with a gas mower, faster door knocks.
+"Sell the company" at any time after year 1 converts valuation into legacy points `floor(sqrt(valuation / 10000))`. Legacy perks carry into new games: Seed Money (+$1,500, 1 point), Local Legend (start near 3.8 reputation, 2), Head Start (+1 skill point, 1), Fleet Discount (first truck -25%, 2), Gas Start (a gas push mower, 1), Quick Knocks (knocks take one minute less, 1).
 
 ## 20. Presentation rules
 
 - UI copy follows docs/COPY.md: product voice, short labels, no em dashes, no exclamation marks in system text (homeowners may exclaim in dialogue), no emoji in UI chrome.
 - Every penalty has a reason string the player can read.
 - Touch controls exist for everything (the owner plays on an iPad).
+
+## 21. Implementation notes (sim)
+
+- **Owner clock.** `owner.minute` runs from 450 to 1170. Every action that costs time (travel, knock, pitch, job, sharpening) is refused with "Not enough daylight." when it would pass 19:30. Knocking opens at 08:00 (the tutorial neighbor excepted). End Day resets the clock to 07:30 at the HQ.
+- **Transport.** The owner's vehicle capacity must cover the owner's mower `transportSize`, otherwise manual and autopilot jobs are refused. The bicycle carries push mowers only. New mowers join the kit when they beat the current mower and fit the vehicle; otherwise they wait in the garage.
+- **Due jobs.** A client is due from `nextDueDay - 1` (one day early allowed). `daysOverdue = max(0, today - nextDueDay - 1)`. Sundays and storm days carry no lateness penalty. Winter pauses every contract until spring day 1.
+- **Grass.** Client lawns are tracked in the save and grown each night with that day's weather. Other lawns are a pure function of the house seed and the day (DIY cycle, rivals every 7 days), so they are never saved.
+- **Crews.** A crew needs at least one member, a mower and a vehicle that can carry it. Capacity is 600 minutes a workday including travel from the base and back. The office manager dispatches the owner's leftover due jobs to crews at End Day; without one, the player assigns jobs.
+- **Tutorial.** `flags.tutorial`: 1 knock on Rose Albright (101 Maple Ln, a warm lead with a 5 in lawn), 2 mow her lawn, 3 knock three doors, 4 end the day, 0 done.
+- **End Day order.** Crews, sales reps, grass growth, lateness, churn, leads, Sunday items (referrals, price check, contract terms, quits), wages, morale, Monday items (hiring board, loans, insurance, fuel price), bids, events, overnight maintenance, overdraft, season change (taxes, winter pause, spring renewal), weather, unlocks, summary, next morning.

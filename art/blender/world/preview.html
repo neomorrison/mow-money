@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>World models</title>
+<style>html,body{margin:0;height:100%;background:#9cc3d9;overflow:hidden}canvas{display:block}</style>
+</head>
+<body>
+<!-- Dev-only preview of the world GLBs in three.js. npm run dev, then open /art/blender/world/preview.html?view=street (or view=big, view=sign). -->
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+
+const q = new URLSearchParams(location.search);
+const view = q.get('view') || 'street';
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#bcdcef');
+scene.add(new THREE.HemisphereLight('#dfefff', '#6f8f4f', 1.4));
+const sun = new THREE.DirectionalLight('#fff4e0', 2.6);
+sun.position.set(-40, 70, 50);
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, { left: -120, right: 120, top: 120, bottom: -120, far: 300 });
+scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshStandardMaterial({ color: '#7fb35a', roughness: 1 }));
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+const street = new THREE.Mesh(new THREE.PlaneGeometry(600, 8), new THREE.MeshStandardMaterial({ color: '#5d6168', roughness: 1 }));
+street.rotation.x = -Math.PI / 2; street.position.set(0, 0.01, 14); street.receiveShadow = true; scene.add(street);
+
+const loader = new GLTFLoader();
+const load = (k) => new Promise((res) => loader.load('/models/' + k + '.glb', (g) => res(g.scene), undefined, () => res(null)));
+const place = async (k, x, z, rot = 0, tint) => {
+  const m = await load(k);
+  if (!m) { console.warn('missing ' + k); return; }
+  m.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (tint && tint[o.material.name]) { o.material = o.material.clone(); o.material.color.set(tint[o.material.name]); } } });
+  m.position.set(x, 0, z); m.rotation.y = rot; scene.add(m); return m;
+};
+const jobs = [];
+const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.5, 1000);
+if (view === 'street') {
+  // houses in a row, fronts (+Z) facing the street and the camera
+  let x = -70;
+  for (const [k, w] of [['house_ranch', 16], ['house_colonial', 12], ['house_cottage', 9], ['house_modern', 14], ['house_mansion', 26], ['bld_hq_garage', 12]]) {
+    jobs.push(place(k, x + w / 2, 0, 0, k === 'bld_hq_garage' ? { Body: '#e07a2f' } : null)); x += w + 5;
+  }
+  const props = ['prop_mailbox', 'prop_gnome', 'prop_yard_sign', 'prop_trashcan', 'prop_bbq', 'prop_bench', 'prop_birdbath', 'prop_doghouse', 'prop_lamppost', 'prop_hose_reel', 'prop_wheelbarrow', 'prop_mulch_bag', 'prop_leaf_pile', 'prop_ball', 'prop_sprinkler', 'prop_flagpole'];
+  props.forEach((k, i) => jobs.push(place(k, -64 + i * 3.2, 9, 0, k === 'prop_yard_sign' ? { Body: '#2f6fb0' } : null)));
+  for (let i = 0; i < 6; i++) jobs.push(place('prop_fence_picket', -10 + i * 2, 7.5));
+  for (let i = 0; i < 4; i++) jobs.push(place('prop_fence_iron', 8 + i * 2, 7.5));
+  const trees = ['tree_oak', 'tree_maple', 'tree_pine', 'tree_birch', 'tree_palm', 'shrub_round', 'flowers_cluster', 'rock_small', 'rock_big'];
+  trees.forEach((k, i) => jobs.push(place(k, -60 + i * 9, -14)));
+  for (let i = 0; i < 4; i++) jobs.push(place('shrub_hedge', 22 + i * 2, 6));
+  camera.position.set(-8, 34, 62); camera.lookAt(-8, 0, -2);
+} else if (view === 'props') {
+  const keys = ['prop_gnome', 'prop_mailbox', 'prop_fence_picket', 'prop_fence_iron', 'prop_trampoline', 'prop_kiddie_pool',
+    'prop_swingset', 'prop_bench', 'prop_birdbath', 'prop_sprinkler', 'prop_doghouse', 'prop_ball', 'prop_bbq', 'prop_patio_set',
+    'prop_lamppost', 'prop_trashcan', 'prop_yard_sign', 'prop_soccer_goal', 'prop_flagpole', 'prop_hose_reel', 'prop_wheelbarrow',
+    'prop_mulch_bag', 'prop_leaf_pile', 'shrub_round', 'shrub_hedge', 'flowers_cluster', 'rock_small', 'rock_big'];
+  keys.forEach((k, i) => jobs.push(place(k, (i % 7) * 4 - 12, Math.floor(i / 7) * 4 - 6)));
+  camera.position.set(0, 16, 22); camera.lookAt(0, 0, 0);
+} else if (view === 'trees') {
+  ['tree_oak', 'tree_maple', 'tree_pine', 'tree_birch', 'tree_palm'].forEach((k, i) => jobs.push(place(k, i * 9 - 18, 0)));
+  camera.position.set(0, 14, 36); camera.lookAt(0, 3.5, 0);
+} else if (view === 'sign') {
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 256;
+  const g = cv.getContext('2d'); g.fillStyle = '#e07a2f'; g.fillRect(0, 0, 512, 256);
+  g.fillStyle = '#fff'; g.font = 'bold 90px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('MOW CO', 256, 110);
+  g.fillStyle = '#123'; g.fillRect(0, 200, 512, 56);
+  const tex = new THREE.CanvasTexture(cv); tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace;
+  const apply = (m) => m && m.traverse((o) => { if (o.isMesh && o.material.name === 'Body') { o.material = o.material.clone(); o.material.map = tex; o.material.color.set('#fff'); } });
+  jobs.push(place('bld_hq_garage', 0, 0).then(apply));
+  jobs.push(place('prop_yard_sign', 8, 6, 0).then(apply));
+  jobs.push(place('prop_yard_sign', 10, 6, Math.PI).then(apply));
+  camera.position.set(4, 6, 20); camera.lookAt(4, 3, 0);
+} else {
+  let x = -70;
+  for (const [k, w] of [['bld_office', 30], ['bld_church', 16], ['bld_school', 36], ['bld_clubhouse', 24], ['bld_pavilion', 10]]) {
+    jobs.push(place(k, x + w / 2, 0)); x += w + 6;
+  }
+  const props = ['prop_trampoline', 'prop_kiddie_pool', 'prop_swingset', 'prop_patio_set', 'prop_soccer_goal'];
+  props.forEach((k, i) => jobs.push(place(k, -40 + i * 7, 16)));
+  camera.position.set(0, 60, 95); camera.lookAt(0, 0, 0);
+}
+Promise.all(jobs).then(() => { window.__ready = true; });
+renderer.setAnimationLoop(() => renderer.render(scene, camera));
+</script>
+</body>
+</html>

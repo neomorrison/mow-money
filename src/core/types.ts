@@ -397,6 +397,8 @@ export interface MowJobSpec {
   perks: string[];          // owner perks relevant to controls (quick_feet, edge_master, straight_lines)
   notes: string[];          // client instructions shown before start
   tutorial: boolean;
+  companyColor?: string;    // tints materials named "Body" (mowers, yard signs)
+  vehicleModel?: string;    // model key of the owner's vehicle parked at the curb
 }
 
 export interface Damage { kind: 'flowerbed' | 'gnome' | 'sprinkler' | 'toy' | 'fence' | 'other'; label: string; points: number; cost: number }
@@ -460,6 +462,7 @@ export interface PitchContext {
   perks: string[];
   season: Season;
   tutorial: boolean;
+  companyName?: string;     // for dialogue placeholders
 }
 
 export interface PitchOutcome {

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Dev-only harness, never built into dist/: rebase relative URLs (audioUrl() etc. return
+       "./audio/<key>.mp3", meant for an index.html at the site root) to the project root, since
+       this page is nested one level down at /harness/. -->
+  <base href="/" />
+  <title>Mow Money: Audio Harness</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0; padding: 24px; background: #14201a; color: #e9f3ec;
+      font: 14px/1.4 -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    p.sub { color: #9db8ab; margin: 0 0 20px; }
+    .section {
+      background: #1b2a22; border: 1px solid #2b4136; border-radius: 10px;
+      padding: 14px 16px; margin-bottom: 16px;
+    }
+    .section h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; color: #8fd6ac; margin: 0 0 10px; }
+    .row {
+      display: flex; align-items: center; gap: 10px; padding: 6px 0;
+      border-bottom: 1px solid #223229;
+    }
+    .row:last-child { border-bottom: none; }
+    .key { min-width: 150px; font-family: ui-monospace, Consolas, monospace; color: #cfe8da; }
+    button {
+      background: #2f6b2f; color: #fff; border: none; border-radius: 6px;
+      padding: 6px 12px; font-size: 13px; cursor: pointer;
+    }
+    button:hover { background: #3a7f3a; }
+    button:disabled { background: #3a4a41; color: #7d9188; cursor: default; }
+    label.inline { display: inline-flex; align-items: center; gap: 6px; color: #9db8ab; font-size: 12px; }
+    input[type="range"] { width: 90px; }
+    #log { max-height: 220px; overflow-y: auto; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+    .logline { color: #7d9188; padding: 1px 0; }
+    #decode-results { margin-top: 10px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+    .decode-ok { color: #8fd6ac; }
+    .decode-fail { color: #e88a7d; }
+  </style>
+</head>
+<body>
+  <h1>Audio harness</h1>
+  <p class="sub">Debug page for src/audio: click Init + Unlock first (audio needs a user gesture), then play sounds, start loops and check that every file decodes.</p>
+  <div id="app"></div>
+  <script type="module" src="/harness/audio.ts"></script>
+</body>
+</html>

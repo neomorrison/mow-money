@@ -1,0 +1,96 @@
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+
+body {
+  font-family: var(--ui-font);
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ui-ink);
+  background: var(--ui-bg);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
+}
+
+#app { height: 100%; }
+
+h1, h2, h3, h4 {
+  font-family: var(--ui-font-display);
+  font-weight: 700;
+  line-height: 1.1;
+  margin: 0;
+  color: var(--ui-g-900);
+}
+
+p { margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+img { max-width: 100%; }
+a { color: var(--ui-g-700); }
+
+::selection { background: var(--ui-sun-200); }
+
+:focus-visible {
+  outline: 3px solid var(--ui-sky-500);
+  outline-offset: 2px;
+}
+
+.ui-icon {
+  width: 1.25em;
+  height: 1.25em;
+  flex: none;
+  display: inline-block;
+  vertical-align: -0.22em;
+}
+
+.ui-sr {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.ui-num { font-variant-numeric: tabular-nums; }
+
+/* Reduced motion: kill decorative animation everywhere in the UI */
+.ui-reduced-motion *, .ui-reduced-motion *::before, .ui-reduced-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-app *, .ui-title *, .ui-overlays * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* scrollbars */
+.ui-scroll { overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+.ui-scroll::-webkit-scrollbar { width: 10px; }
+.ui-scroll::-webkit-scrollbar-thumb { background: rgba(28, 58, 36, 0.18); border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
+.ui-scroll::-webkit-scrollbar-track { background: transparent; }
+
+@keyframes ui-pop { 0% { transform: scale(0.6); opacity: 0; } 70% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes ui-rise { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes ui-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ui-sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(5deg); } }
+@keyframes ui-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+@keyframes ui-shine { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+@keyframes ui-drift { from { transform: translateX(-10%); } to { transform: translateX(110vw); } }
+@keyframes ui-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes ui-spin { to { transform: rotate(360deg); } }

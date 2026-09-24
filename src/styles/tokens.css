@@ -1,0 +1,76 @@
+/* Mow Money design tokens: "suburban summer". Light-first, warm and sunny. */
+:root {
+  /* greens */
+  --ui-g-950: #12321b;
+  --ui-g-900: #1b4526;
+  --ui-g-800: #245a31;
+  --ui-g-700: #2f6f3a;
+  --ui-g-600: #3a8744;
+  --ui-g-500: #4fa556;
+  --ui-g-400: #74bf68;
+  --ui-g-300: #a3d88e;
+  --ui-g-200: #cdeab9;
+  --ui-g-100: #e7f5dc;
+  --ui-g-50: #f3faec;
+
+  /* sky */
+  --ui-sky-700: #2a7db8;
+  --ui-sky-500: #4aa8e0;
+  --ui-sky-300: #9ad3f5;
+  --ui-sky-100: #e2f3fd;
+
+  /* sun */
+  --ui-sun-700: #c98a00;
+  --ui-sun-600: #e6a100;
+  --ui-sun-500: #ffc12e;
+  --ui-sun-400: #ffd35c;
+  --ui-sun-200: #ffeaa8;
+  --ui-sun-100: #fff5d6;
+
+  /* paper */
+  --ui-paper: #fffaf0;
+  --ui-paper-2: #fbf2de;
+  --ui-paper-3: #f3e6c8;
+  --ui-bg: #eef6e4;
+
+  /* ink */
+  --ui-ink: #1c3a24;
+  --ui-ink-2: #4b6552;
+  --ui-ink-3: #7c917f;
+  --ui-line: rgba(28, 58, 36, 0.12);
+  --ui-line-2: rgba(28, 58, 36, 0.2);
+
+  /* signals */
+  --ui-red: #d9483b;
+  --ui-red-100: #fde4df;
+  --ui-orange: #ee8a2a;
+  --ui-orange-100: #fdebd6;
+  --ui-blue: #3b8fd1;
+  --ui-purple: #8a63d2;
+  --ui-good: var(--ui-g-600);
+
+  /* type */
+  --ui-font-display: 'Baloo 2', 'Nunito', system-ui, sans-serif;
+  --ui-font: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* shape */
+  --ui-r-sm: 10px;
+  --ui-r: 16px;
+  --ui-r-lg: 22px;
+  --ui-r-xl: 30px;
+  --ui-shadow-sm: 0 1px 2px rgba(28, 58, 36, 0.08), 0 2px 6px rgba(28, 58, 36, 0.06);
+  --ui-shadow: 0 2px 4px rgba(28, 58, 36, 0.06), 0 8px 22px rgba(28, 58, 36, 0.09);
+  --ui-shadow-lg: 0 10px 30px rgba(28, 58, 36, 0.18), 0 2px 6px rgba(28, 58, 36, 0.08);
+
+  /* layout */
+  --ui-side-w: 232px;
+  --ui-top-h: 68px;
+  --ui-tabs-h: 64px;
+  --ui-safe-b: env(safe-area-inset-bottom, 0px);
+  --ui-safe-t: env(safe-area-inset-top, 0px);
+
+  --ui-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ui-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --ui-company: #2f6f3a;
+}

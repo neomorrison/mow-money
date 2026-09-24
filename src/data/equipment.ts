@@ -36,7 +36,7 @@ export const EQUIPMENT: EquipmentSpec[] = [
     deckHeights: [2, 2.5, 3, 3.5, 4, 4.5], transportSize: 2, loud: true, unlock: { rep: 3.4 },
   },
   {
-    id: 'zt48', name: 'Zero-Turn 48"', category: 'mower', tier: 4, price: 4800,
+    id: 'zt48', name: 'Zero-Turn 48"', category: 'mower', tier: 4, price: 5800,
     blurb: 'Ride-on, spins in place. The day your legs retire.',
     model: 'mower_zt48', thumb: 'mower_zt48',
     deckWidth: 2.4, speed: 5.5, turnRate: 3.2, zeroTurn: true, rideOn: true, qualityCap: 88, stripe: 0.4, maxGrassIn: 9,
@@ -65,7 +65,7 @@ export const EQUIPMENT: EquipmentSpec[] = [
     model: 'mower_widearea', thumb: 'mower_widearea',
     deckWidth: 3.8, speed: 7.0, turnRate: 2.4, rideOn: true, qualityCap: 92, stripe: 0.6, maxGrassIn: 10,
     mulching: true, fuelGalPerHr: 1.6, wearMult: 1, reliability: 0.96,
-    deckHeights: [1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5], transportSize: 5, loud: true, unlock: { rep: 4.3 },
+    deckHeights: [1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5], transportSize: 5, loud: true, unlock: { rep: 4.2 },
   },
   {
     id: 'gangreel', name: 'Fairway Gang Reel Tractor', category: 'mower', tier: 7, price: 48000,
@@ -73,7 +73,7 @@ export const EQUIPMENT: EquipmentSpec[] = [
     model: 'mower_gangreel', thumb: 'mower_gangreel',
     deckWidth: 6.0, speed: 6.5, turnRate: 1.8, rideOn: true, qualityCap: 98, stripe: 1.0, maxGrassIn: 5,
     fuelGalPerHr: 2.2, wearMult: 0.8, reliability: 0.97,
-    deckHeights: [0.5, 0.75, 1, 1.5, 2, 2.5, 3], transportSize: 8, loud: true, unlock: { rep: 4.6 },
+    deckHeights: [0.5, 0.75, 1, 1.5, 2, 2.5, 3], transportSize: 8, loud: true, unlock: { rep: 4.5 },
   },
   // ------------------------------------------------------------ trimmers
   {
@@ -114,12 +114,12 @@ export const EQUIPMENT: EquipmentSpec[] = [
     model: 'veh_bike', thumb: 'veh_bike', travelSpeedKmh: 14, capacity: 1, seats: 1, reliability: 1,
   },
   {
-    id: 'pickup', name: 'Used Pickup', category: 'vehicle', tier: 2, price: 5200,
+    id: 'pickup', name: 'Used Pickup', category: 'vehicle', tier: 2, price: 7200,
     blurb: '180,000 miles and a good attitude. Bed fits a walk-behind.',
     model: 'veh_pickup', thumb: 'veh_pickup', travelSpeedKmh: 42, capacity: 2, seats: 2, fuelGalPerHr: 1.5, reliability: 0.95,
   },
   {
-    id: 'pickup_trailer', name: 'Pickup and 12 ft Trailer', category: 'vehicle', tier: 3, price: 9800,
+    id: 'pickup_trailer', name: 'Pickup and 12 ft Trailer', category: 'vehicle', tier: 3, price: 10800,
     blurb: 'Hauls a zero-turn plus the push gear.',
     model: 'veh_pickup_trailer', thumb: 'veh_pickup_trailer', travelSpeedKmh: 40, capacity: 6, seats: 2, fuelGalPerHr: 1.8, reliability: 0.96,
     unlock: { rep: 3.6 },
@@ -134,7 +134,7 @@ export const EQUIPMENT: EquipmentSpec[] = [
     id: 'boxtruck', name: 'Box Truck', category: 'vehicle', tier: 6, price: 54000,
     blurb: 'Rolling shop for the big contracts.',
     model: 'veh_boxtruck', thumb: 'veh_boxtruck', travelSpeedKmh: 44, capacity: 14, seats: 3, fuelGalPerHr: 2.8, reliability: 0.97,
-    unlock: { rep: 4.3 },
+    unlock: { rep: 4.2 },
   },
   // ------------------------------------------------------------ add-ons (owned once, apply to the owner's kit)
   {
