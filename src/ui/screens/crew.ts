@@ -22,7 +22,7 @@ const ROLE_BLURB: Record<StaffRole, string> = {
   lead: 'Runs a crew and drives the truck. +4 quality.',
   sales: 'Knocks doors in an assigned neighborhood.',
   mechanic: 'Sharpens and repairs overnight. Fewer breakdowns.',
-  office: 'Dispatches due jobs to crews every morning.',
+  office: 'Hands your leftover due jobs to crews when you end the day.',
   manager: 'Hires replacements, buys fuel, runs branches.',
 };
 const TRAIT_TIP: Record<string, string> = {

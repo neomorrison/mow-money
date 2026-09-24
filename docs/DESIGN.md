@@ -262,10 +262,10 @@ Roles, market wage per hour for skill `s` in [0, 100]:
 | lead | 25 + 0.20 s | crew lead, +4 quality, can drive the truck |
 | sales | 22 + 0.17 s + 8 percent commission on first-month revenue | knocks doors in an assigned neighborhood |
 | mechanic | 28 + 0.17 s | sharpens and repairs overnight, breakdowns x0.4 |
-| office | 24 + 0.14 s | dispatches due jobs to crews every morning, +2 percent collected revenue |
+| office | 24 + 0.14 s | hands the owner's leftover due jobs to crews at End Day, +2 percent collected revenue |
 | manager | 42 + 0.28 s | Operations Manager: hires replacements, buys fuel, runs branches |
 
-Paid 10 hours per workday; on storm days crew members and sales reps stay home on half pay. Crews are a vehicle, a mower, a trimmer and a blower plus one or more members, one of them a lead or the owner. Crew daily capacity is 600 minutes minus travel, jobs sorted by overdue first, then by neighborhood.
+Paid 10 hours per workday; on storm days outside winter crew members and sales reps stay home on half pay. Crews are a vehicle, a mower, a trimmer and a blower plus one or more members, one of them a lead or the owner. Crew daily capacity is 600 minutes minus travel, jobs sorted by overdue first, then by neighborhood.
 
 Morale drifts 10 percent per day toward `60 + 60 * (wage / marketWage - 1) + 10 * recentRaise` (+10 Motivator, +5 Loyal). Weekly quit chance `0.25 / (1 + exp((morale - 35) / 6))`. No-show chance per day `(1 - reliability) * 0.5 * (1 + max(0, 50 - morale) / 25)`. Nobody works for less than 80 percent of their market wage. Skill grows `(100 - skill) * 0.0005` per job (x2 with the Trainer perk; sales reps grow 4x that per signed client), so a crew member closes about a third of the gap to 100 in a busy season. Wages follow skill, so good people ask for raises.
 

@@ -14,7 +14,7 @@ function field(grassIn = 4.5, leaves = 0) {
 
 function deck(f: GrassField, over: Partial<DeckParams> = {}): DeckParams {
   return {
-    x: 0, z: 0, prevX: 0, prevZ: 0, heading: 0, width: 1.2, length: 0.5, deckIn: 3, deckIndex: 2, maxGrassIn: 7,
+    x: 0, z: 0, prevX: 0, prevZ: 0, heading: 0, width: 1.2, length: 0.5, deckIn: 3, maxGrassIn: 7,
     stripeVis: 0.8, bagActive: false, mulching: true, discharge: 0.35, wet: false, autoStripe: false, bandW: 1.2, frame: 1, time: 0, dt: 1 / 60, ...over,
   };
 }
@@ -195,7 +195,7 @@ describe('scoring', () => {
       const zA = f.z0, zB = f.z0 + f.nz * f.cs;
       for (let x = 0.4; x < f.layout.lot.w; x += 1.0) {
         const hi = x > splitX;
-        frame = drive(f, deck(f, { deckIn: hi ? 4 : 3, deckIndex: hi ? 3 : 1 }), x, zA, x, zB, frame);
+        frame = drive(f, deck(f, { deckIn: hi ? 4 : 3 }), x, zA, x, zB, frame);
       }
       // trim every edge cell the deck did not reach, at the deck in use for that side
       const out = { cells: 0, cut: 0, removed: 0, tallest: 0 };
@@ -227,12 +227,24 @@ describe('scoring', () => {
       const s = lawnSpot(f);
       const k = f.idx(s.x, s.z);
       const st = { ...state(f), deckIndex: 1 };
-      const next = drive(f, deck(f, { deckIn: 3, deckIndex: 1, maxGrassIn: 6 }), s.x, s.z - 1, s.x, s.z + 1);
+      const next = drive(f, deck(f, { deckIn: 3, maxGrassIn: 6 }), s.x, s.z - 1, s.x, s.z + 1);
       expect(f.h[k]).toBeGreaterThan(3.5);
       expect(f.h[k]).toBeGreaterThan(f.limitAt(k, 3));
-      drive(f, deck(f, { deckIn: 3, deckIndex: 1, maxGrassIn: 6 }), s.x, s.z - 1, s.x, s.z + 1, next);
+      drive(f, deck(f, { deckIn: 3, maxGrassIn: 6 }), s.x, s.z - 1, s.x, s.z + 1, next);
       expect(f.h[k]).toBeLessThanOrEqual(f.limitAt(k, 3));
       expect(computeResult(st, true).coverage).toBeGreaterThan(0);
+    });
+
+    it('a sweep with the deck raised out of the way is scored at that height', () => {
+      const f = field(3);
+      let frame = 1;
+      for (let x = 0.4; x < f.layout.lot.w; x += 1.0) frame = drive(f, deck(f, { deckIn: 4 }), x, f.z0, x, f.z0 + f.nz * f.cs, frame);
+      expect(f.uniqueCutCells).toBe(0);
+      // the deck is back at the client's height when the job ends, but the lawn was never cut there
+      const r = computeResult({ ...state(f), deckIndex: 1 }, true);
+      expect(r.cutHeightIn).toBe(4);
+      const spec = { targetIn: 3, wet: false, wantsStripes: false, striping: false, sharpness: 1, mower: { qualityCap: 100 } } as unknown as MowJobSpec;
+      expect(estimateQuality(spec, r).penalties.some((p) => p.label === 'Cut too high')).toBe(true);
     });
 
     it('a mower pass over grass already under the deck counts at that deck', () => {
@@ -241,7 +253,7 @@ describe('scoring', () => {
       const k = f.idx(s.x, s.z);
       f.h[k] = 3.8;
       expect(f.cutAt[k]).toBe(0);
-      drive(f, deck(f, { deckIn: 4, deckIndex: 3 }), s.x, s.z - 1, s.x, s.z + 1);
+      drive(f, deck(f, { deckIn: 4 }), s.x, s.z - 1, s.x, s.z + 1);
       expect(f.h[k]).toBeCloseTo(3.8, 5);
       expect(f.cutAt[k]).toBe(4);
       expect(f.h[k]).toBeLessThanOrEqual(f.limitAt(k, 3));

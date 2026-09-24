@@ -254,7 +254,7 @@ describe('crews explain themselves', () => {
     const first = sim.autoDispatch(s);
     expect(first.message).toMatch(/when you end the day/);
     const again = sim.autoDispatch(s);
-    expect(again.message).toMatch(/already have every due job|No jobs due/);
+    expect(again.message).toMatch(/already have every due job|not fit in today's routes|No jobs due/);
     s.weather.today = 'storm';
     const plan = sim.crewPlans(s)[0];
     expect(plan.note).toMatch(/^Storm/);

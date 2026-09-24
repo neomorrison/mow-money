@@ -5,7 +5,7 @@ import { GrassField, LAWN, HARD, BED, SAND } from './field';
 export interface DeckParams {
   x: number; z: number; prevX: number; prevZ: number; heading: number;
   width: number; length: number;
-  deckIn: number; deckIndex: number;
+  deckIn: number;
   maxGrassIn: number;
   stripeVis: number;           // 0..1 how strongly the cut lays the grass over
   bagActive: boolean;
@@ -98,7 +98,6 @@ export function cutDeck(f: GrassField, p: DeckParams, out: DeckOutcome): void {
         if (hb > out.tallest) out.tallest = hb;
         if (!f.cutOnce[k]) { f.cutOnce[k] = 1; f.uniqueCutCells++; out.newCells++; }
         f.mowerCutCells++;
-        f.cutAreaByDeck[p.deckIndex] += cellA;
         f.cutAt[k] = p.deckIn;
         changedC = true;
         const vol = cellA * rem / 3;       // m2 of full-height clippings

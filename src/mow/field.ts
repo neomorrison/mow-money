@@ -67,7 +67,6 @@ export class GrassField {
   edgeCells = 0;
   initialDebris = 0;
   generatedDebris = 0;
-  cutAreaByDeck = new Float64Array(16);
   uniqueCutCells = 0;
   mowerCutCells = 0;
 

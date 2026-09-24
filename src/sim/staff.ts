@@ -184,7 +184,7 @@ export function weeklyQuits(state: GameState, rng: Rng): { name: string; event: 
 
 export function payWages(state: GameState): number {
   // crews rained out by a storm draw half pay (sales reps stay in too; office, mechanic and managers work)
-  const storm = state.weather.today === 'storm';
+  const storm = state.weather.today === 'storm' && calendar(state.day).season !== 'winter';
   const stoodDown = (e: Employee) => storm && (!!e.crewId || e.role === 'sales');
   let total = 0;
   for (const e of state.staff) {

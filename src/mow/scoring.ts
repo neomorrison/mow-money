@@ -17,10 +17,25 @@ export interface ScoreState {
   mowerAreaM2: number;        // area cut by the mower (for blade wear)
 }
 
-/** Deck height (inches) used for the most cut area. */
-export function mostUsedDeck(f: GrassField, heights: number[], current: number): number {
-  let best = -1, bestA = 0;
-  for (let i = 0; i < heights.length; i++) if (f.cutAreaByDeck[i] > bestA) { bestA = f.cutAreaByDeck[i]; best = i; }
+/**
+ * Lawn cells per deck setting, counted by the height each cell was last cut or mowed over at (`cutAt`), the
+ * same record coverage uses. A deck pass that cuts nothing still counts at its height, so a sweep with the
+ * deck raised out of the way is scored as a cut at that height.
+ */
+export function cellsByDeck(f: GrassField, heights: number[], out = new Float64Array(heights.length)): Float64Array {
+  out.fill(0);
+  for (let k = 0; k < f.n; k++) {
+    const c = f.cutAt[k];
+    if (c <= 0 || f.surf[k] !== LAWN) continue;
+    for (let i = 0; i < heights.length; i++) if (Math.abs(heights[i] - c) < 0.01) { out[i]++; break; }
+  }
+  return out;
+}
+
+/** Deck height (inches) the most lawn was cut at, or the current setting before anything was cut. */
+export function mostUsedDeck(f: GrassField, heights: number[], current: number, counts = cellsByDeck(f, heights)): number {
+  let best = -1, bestN = 0;
+  for (let i = 0; i < heights.length; i++) if (counts[i] > bestN) { bestN = counts[i]; best = i; }
   return best < 0 ? heights[current] : heights[best];
 }
 

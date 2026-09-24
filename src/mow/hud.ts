@@ -223,7 +223,8 @@ export class Hud {
   /** Switch to the compact layout on small screens. */
   layout() {
     const w = this.root.clientWidth || window.innerWidth, hgt = this.root.clientHeight || window.innerHeight;
-    this.root.classList.toggle('compact', w < 760 || hgt < 520);
+    // the full right column (quality card and minimap) ends near 395px; the button stack takes the bottom 174px
+    this.root.classList.toggle('compact', w < 760 || hgt < 580);
     this.root.classList.toggle('short', hgt < 480);
   }
 

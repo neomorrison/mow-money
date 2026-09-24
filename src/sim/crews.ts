@@ -221,7 +221,10 @@ export function crewDayOff(state: GameState): string {
   const cal = calendar(state.day);
   if (cal.season === 'winter') return '';
   if (!cal.isWorkday) return 'Sunday: crews are off. Their jobs wait for Monday.';
-  if (state.weather.today === 'storm') return 'Storm: crews stay home today. Their jobs move to tomorrow with no late penalty, and crews get half pay.';
+  if (state.weather.today === 'storm') {
+    const contracts = state.clients.some((c) => c.commercial && c.status === 'active' && c.assignee !== 'owner');
+    return `Storm: crews stay home today on half pay. Their jobs wait for the next working day, and today does not count as late${contracts ? ', but contract sites still expect their weekly visit' : ''}.`;
+  }
   return '';
 }
 
@@ -265,11 +268,15 @@ export function autoDispatch(state: GameState): ActionResult {
   if (calendar(state.day).season === 'winter') return { ok: true, message: 'Nothing to dispatch in winter.' };
   reclaimJobs(state);
   const ready = state.crews.filter((c) => crewProblem(state, c) === '');
-  if (!ready.length) return { ok: false, message: 'No crew is ready. A crew needs a member, a mower and a vehicle that can carry it.' };
+  if (!ready.length) {
+    const why = state.crews.map((c) => `${c.name}: ${crewProblem(state, c)}`).join(' ');
+    return { ok: false, message: why ? `No crew is ready. ${why}` : 'No crew is ready. Build one on the Crew screen: a member, a mower and a vehicle that can carry it.' };
+  }
   const readyIds = new Set(ready.map((c) => c.id));
   // Jobs for the owner or for crews that cannot work are up for grabs.
   const pool = state.clients.filter((c) => isDue(state, c) && (c.assignee === 'owner' || !readyIds.has(c.assignee)));
   let moved = 0;
+  let noCrew = 0;           // owner jobs in a town none of the ready crews works in
   // Existing routes.
   const loads = new Map<string, Client[]>();
   for (const crew of ready) loads.set(crew.id, routeCrew(state, crew, crewCandidates(state, crew)).jobs.map((j) => j.client));
@@ -277,6 +284,7 @@ export function autoDispatch(state: GameState): ActionResult {
     const hood = houseHoodKey(c.houseId);
     const town = splitHoodKey(hood).townId;
     const options = ready.filter((cr) => crewTown(cr) === town || (town === 'home' && !cr.homeHood));
+    if (!options.length) { if (c.assignee === 'owner') noCrew++; continue; }
     options.sort((a, b) => {
       const ah = a.homeHood === hood ? 0 : 1;
       const bh = b.homeHood === hood ? 0 : 1;
@@ -296,10 +304,19 @@ export function autoDispatch(state: GameState): ActionResult {
   }
   const off = crewDayOff(state);
   const later = off ? ' They start on the next working day.' : ' They mow them when you end the day.';
-  if (moved) return { ok: true, message: `${moved} ${moved === 1 ? 'job' : 'jobs'} handed to your crews.${later}` };
+  const jobs = (n: number) => `${n} ${n === 1 ? 'job' : 'jobs'}`;
+  const elsewhere = noCrew ? ` ${jobs(noCrew)} ${noCrew === 1 ? 'is' : 'are'} in a town none of your crews works in.` : '';
+  if (moved) return { ok: true, message: `${jobs(moved)} handed to your crews.${later}${elsewhere}` };
   const withCrews = state.clients.filter((c) => isDue(state, c) && c.assignee !== 'owner').length;
   const leftMine = state.clients.filter((c) => isDue(state, c) && c.assignee === 'owner').length;
-  if (leftMine) return { ok: true, message: `No room left in your crews' day for your ${leftMine} remaining ${leftMine === 1 ? 'job' : 'jobs'}.` };
+  if (leftMine) {
+    if (noCrew >= leftMine) return { ok: true, message: `None of your ready crews works in the town of your ${jobs(leftMine)} left. Base a crew there, or mow ${leftMine === 1 ? 'it' : 'them'} yourself.` };
+    return { ok: true, message: `No room left in your crews' day for ${jobs(leftMine - noCrew)} of yours.${elsewhere}` };
+  }
+  // jobs the crews hold but cannot fit in today's routes wait (they come back to you once overdue)
+  const fits = [...loads.values()].reduce((a, l) => a + l.length, 0);
+  const stuck = withCrews - fits;
+  if (stuck > 0) return { ok: true, message: `Your crews hold every due job, but ${jobs(stuck)} ${stuck === 1 ? 'does' : 'do'} not fit in today's routes. Take ${stuck === 1 ? 'it' : 'them'} back on the job ${stuck === 1 ? 'card' : 'cards'}, or ${stuck === 1 ? 'it waits' : 'they wait'} for tomorrow.` };
   if (withCrews) return { ok: true, message: `Your crews already have every due job (${withCrews}).${later}` };
   return { ok: true, message: 'No jobs due right now.' };
 }

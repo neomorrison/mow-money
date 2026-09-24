@@ -28,8 +28,7 @@ export const HUD_CSS = `
 .mmj-q{padding:10px 12px}
 .mmj-q .row{display:flex;align-items:center;justify-content:space-between;gap:6px}
 .mmj-q .side{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
-.mmj-track{font-size:11px;font-weight:800;color:#5c7a44;white-space:nowrap}
-.mmj-track:empty{display:none}
+.mmj-track{font-size:11px;font-weight:800;color:#5c7a44;white-space:nowrap;min-height:13px}
 .mmj-q .big{font-family:'Baloo 2','Nunito',system-ui,sans-serif;font-weight:800;font-size:34px;line-height:.9}
 .mmj-q .lbl{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7c917f}
 .mmj-stars{display:flex;gap:1px}
