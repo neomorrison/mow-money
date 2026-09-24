@@ -2,7 +2,8 @@
 import type { ActionResult, AddOn, Client, Frequency, GameState, Id } from '../core/types';
 import type { Rng } from '../core/rng';
 import { clamp } from '../core/rng';
-import { CHURN_MID, CHURN_SCALE, CHURN_WEEK_MAX, RIVAL_CHURN_MULT, DAMAGE_SATISFACTION } from './constants';
+import { ADDON_MULT, BIWEEKLY_MULT, CHURN_MID, CHURN_SCALE, CHURN_WEEK_MAX, RIVAL_CHURN_MULT, DAMAGE_SATISFACTION } from './constants';
+import { ARCHETYPE_BY_ID } from '../data/archetypes';
 import { houseInfo, hs, houseHoodKey, rivalActiveInHood, rivalIndexFor, grassHeight } from './world';
 import { calendar } from './calendar';
 import { serviceMult } from './pricing';
@@ -114,8 +115,22 @@ export function changeService(state: GameState, clientId: Id, opts: { freq?: Fre
   const before = serviceMult(c.freq, c.addOns);
   const after = serviceMult(freq, addOns);
   const k = after / before;
-  c.price = r2(c.price * k);
-  c.R = r2(c.R * k);
+  // What the client is willing to pay moves only as much as they care about the change (section 8).
+  const info = houseInfo(state, c.houseId);
+  const arch = ARCHETYPE_BY_ID[info.archetypeId];
+  const fm = (f: Frequency) => (f === 14 ? BIWEEKLY_MULT : 1) * (f === (arch?.prefersFreq ?? 7) ? 1 : 0.9);
+  const am = (list: AddOn[]) => list.reduce((m, a) => m * (1 + ((ADDON_MULT[a] ?? 1) - 1) * clamp(arch?.addOnAffinity[a] ?? 0, 0, 1)), 1);
+  const added = addOns.filter((a) => !c.addOns.includes(a));
+  const removed = c.addOns.filter((a) => !addOns.includes(a));
+  const kR = (fm(freq) / fm(c.freq)) * (am(added) / am(removed));
+  const newPrice = r2(c.price * k);
+  const newR = r2(c.R * kR);
+  if (added.length && newPrice > c.price && newPrice > newR * 1.0001) {
+    c.satisfaction = r1(clamp(c.satisfaction - 3, 0, 100));
+    return { ok: false, message: 'They do not want to pay more for that.' };
+  }
+  c.price = newPrice;
+  c.R = newR;
   if (freq !== c.freq) {
     // Moving the next visit keeps the schedule sensible.
     if (c.lastServiceDay >= 0) c.nextDueDay = Math.max(state.day, c.lastServiceDay + freq);

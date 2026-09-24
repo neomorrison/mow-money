@@ -35,7 +35,7 @@ const STATS: Record<EquipmentCategory, Stat[]> = {
   ],
   vehicle: [
     { label: 'Travel speed', get: (s) => s.travelSpeedKmh, max: 50, fmt: (v) => `${Math.round(v)} km/h` },
-    { label: 'Capacity', get: (s) => s.capacity, max: 14, fmt: (v) => `${v} units` },
+    { label: 'Hauls up to', get: (s) => s.capacity, max: 14, fmt: (v) => `size ${v}` },
     { label: 'Seats', get: (s) => s.seats, max: 4, fmt: (v) => `${v}` },
   ],
   addon: [],
@@ -75,6 +75,16 @@ function flags(spec: EquipmentSpec): Raw {
   return html`${f.map((x) => html`<span class="ui-chip ui-chip--grey">${x}</span>`)}`;
 }
 
+/** A mower your vehicle cannot haul is dead weight: say so before the player pays. */
+function haulWarning(spec: EquipmentSpec, s: GameState): string {
+  if (spec.category !== 'mower' || !spec.transportSize) return '';
+  const vehicles = s.items.map((i) => EQUIPMENT_BY_ID[i.specId]).filter((v) => v?.category === 'vehicle');
+  const best = Math.max(1, ...vehicles.map((v) => v.capacity ?? 1));
+  if (spec.transportSize <= best) return '';
+  const need = EQUIPMENT.filter((v) => v.category === 'vehicle' && (v.capacity ?? 1) >= spec.transportSize!).sort((a, b) => a.price - b.price)[0];
+  return `None of your vehicles can haul it (haul size ${spec.transportSize}, yours carry up to ${best}).${need ? ` Needs a ${need.name}.` : ''}`;
+}
+
 function shopCard(e: ShopEntry, s: GameState): Raw {
   const cur = ownerSlot(s, e.spec.category);
   const curSpec = cur ? EQUIPMENT_BY_ID[cur.specId] : undefined;
@@ -102,6 +112,7 @@ function shopCard(e: ShopEntry, s: GameState): Raw {
         : html`<button class="ui-btn ${e.canBuy ? 'ui-btn--primary' : ''}" data-click="buy" data-id="${e.spec.id}" ${e.canBuy ? '' : raw('disabled')}>${raw(icon('cash'))}Buy</button>`}
     </div>
     ${!e.canBuy && !locked && e.price > s.cash ? html`<div class="ui-tiny ui-bad ui-strong" style="text-align:right">Need ${money(e.price - s.cash)} more</div>` : ''}
+    ${!locked && haulWarning(e.spec, s) ? html`<div class="ui-note ui-note--warn" style="margin-top:8px">${raw(icon('truck'))}${haulWarning(e.spec, s)}</div>` : ''}
   </article>`;
 }
 
@@ -192,8 +203,9 @@ export const garageScreen: Screen = {
     buy: async (el) => {
       const id = el.dataset.id || '';
       const e = safe(() => sim.shop(store.state), []).find((x) => x.spec.id === id);
-      if (e && e.price >= 1000) {
-        const ok = await confirmDialog({ title: `Buy ${e.spec.name}?`, body: `${money(e.price)} from ${money(store.state.cash)} cash.`, ok: `Buy for ${money(e.price)}` });
+      const warn = e ? haulWarning(e.spec, store.state) : '';
+      if (e && (e.price >= 1000 || warn)) {
+        const ok = await confirmDialog({ title: `Buy ${e.spec.name}?`, body: `${money(e.price)} from ${money(store.state.cash)} cash.${warn ? ` ${warn}` : ''}`, ok: `Buy for ${money(e.price)}`, danger: !!warn });
         if (!ok) return;
       }
       act(() => sim.buy(store.state, id), { sound: 'cash' });

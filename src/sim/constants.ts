@@ -6,8 +6,8 @@ export const DAY_START = 450;          // 07:30
 export const DAY_END = 1170;           // 19:30
 export const SETUP_MINUTES = 6;
 export const KNOCK_OPEN = 450;         // doors can be knocked from the start of the day
-export const KNOCK_EARLY = 510;        // before 08:30 fewer people answer (x0.6)
-export const KNOCK_MORNING = 540;      // 08:30 to 09:00 a few still sleep in (x0.85)
+export const KNOCK_EARLY = 510;        // before 08:30 fewer people answer (x0.75)
+export const KNOCK_MORNING = 540;      // 08:30 to 09:00 a few still sleep in (x0.9)
 export const EVENING_START = 1020;     // 17:00
 
 export const SEASONS: Season[] = ['spring', 'summer', 'fall', 'winter'];
@@ -44,7 +44,7 @@ export const WET_SLOWDOWN = 1.15;
 // ---------------------------------------------------------------- prices (section 6)
 export const ADDON_MULT: Record<AddOn, number> = { bagging: 1.12, stripes: 1.10, fertilizer: 1.08 };
 export const BIWEEKLY_MULT = 1.2;
-export const KIND_MULT = { residential: 1, estate: 1, commercial: 1.15, park: 1.15, golf: 2.5 } as const;
+export const KIND_MULT = { residential: 1, estate: 1, commercial: 1.5, park: 1.5, golf: 4 } as const;   // contract sites pay enough to keep a crew busy
 export const SQFT_PER_M2 = 10.764;
 export const PRICE_SCALE = 1.3;        // arcade pay: every fair price is scaled by this
 
@@ -53,6 +53,8 @@ export const SHARPEN_COST = 6;
 export const SHARPEN_MINUTES = 15;
 export const BLADE_WEAR_PER_1000 = 0.05;  // sharpness lost per 1,000 m2 cut (x wearMult)
 export const CONDITION_PER_HOUR = 0.002;
+export const BREAKDOWN_PER_HOUR = 0.5;   // breakdown chance per engine hour = this * (1 - reliability) * (1.5 - condition)
+export const BREAKDOWN_FIXED = 0.9;      // a breakdown repair brings the machine back to at least this condition
 export const TRIM_TOOL_MULT: Record<string, number> = { shears: 1.6, trimmer: 1, protrimmer: 0.5 };
 export const BLOW_TOOL_MULT: Record<string, number> = { broom: 1.5, blower: 1, backpack: 0.7 };
 export const FUEL_START = 3.6;

@@ -1,6 +1,6 @@
 // Door to door: knocking and applying pitch outcomes (docs/DESIGN.md sections 7 and 8).
 import type { ActionResult, Client, GameState, Id, KnockResult, PitchContext, PitchOutcome } from '../core/types';
-import { clamp } from '../core/rng';
+import { clamp, hashSeed } from '../core/rng';
 import { ARCHETYPE_BY_ID } from '../data/archetypes';
 import { COLD_LINES, NOT_INTERESTED_DIY, NOT_INTERESTED_RIVAL, fill } from '../data/dialogue';
 import { pickFresh } from '../data/pick';
@@ -17,6 +17,7 @@ import {
 import { ownerKit } from './kit';
 import { addXp } from './owner';
 import { checkAchievements } from './achievements';
+import { checkGoals } from './goals';
 
 export function knockMinutes(state: GameState): number {
   let m = hasPerk(state, 'door_pro') ? 2 : 4;
@@ -33,8 +34,8 @@ export function answerChance(state: GameState, houseId: Id, minute: number): num
   if (hasPerk(state, 'door_pro')) p = Math.min(0.97, p * 1.1);
   if (isLead(state, state.houses[houseId])) p = Math.max(p, 0.85);
   // Early birds: fewer people come to the door before 08:30, a few more by 09:00.
-  if (minute < KNOCK_EARLY) p *= 0.6;
-  else if (minute < KNOCK_MORNING) p *= 0.85;
+  if (minute < KNOCK_EARLY) p *= 0.75;
+  else if (minute < KNOCK_MORNING) p *= 0.9;
   return clamp(p, 0, 0.97);
 }
 
@@ -68,11 +69,18 @@ export function pitchContext(state: GameState, houseId: Id): PitchContext {
   };
 }
 
+/** About 3 in 10 DIY households enjoy mowing and almost never hire (keeps each neighborhood from filling up in weeks). */
+export function lovesMowing(propertySeed: number): boolean {
+  return hashSeed(propertySeed, 'loves-mowing') % 100 < 30;
+}
+
 /** Chance a homeowner who opens the door is not interested at all (never reaches the pitch). */
 export function notInterestedChance(state: GameState, houseId: Id): number {
   const s = state.houses[houseId];
   if (isLead(state, s) || isHoa(state, s)) return 0.05;
   const info = houseInfo(state, houseId);
+  // Some people simply like mowing their own lawn. They say no however tall the grass gets.
+  if (!rivalFor(state, info) && lovesMowing(info.propertySeed)) return 0.97;
   const h = grassHeight(state, houseId);
   const rival = rivalFor(state, info);
   if (rival) return clamp(rival.priceIndex < 1 ? 0.4 : 0.55, 0, 0.9);
@@ -109,6 +117,7 @@ export function knock(state: GameState, houseId: Id): KnockResult {
   const answered = withRng(state, (rng) => rng.chance(p));
   advanceTutorialKnocks(state);
   checkAchievements(state);
+  checkGoals(state);
   const minutes = travel + km;
   if (!answered) {
     return { ok: true, answered: false, minutes, message: 'No one answered.', context: null };
@@ -123,7 +132,7 @@ export function knock(state: GameState, houseId: Id): KnockResult {
       return `${info.ownerName}: "${line}"`;
     });
     if (no) {
-      s.coldUntil = Math.max(s.coldUntil ?? 0, state.day + 3);
+      s.coldUntil = Math.max(s.coldUntil ?? 0, state.day + (lovesMowing(info.propertySeed) && !rivalFor(state, info) ? 10 : 3));
       return { ok: true, answered: false, minutes, message: no, context: null };
     }
   }
@@ -146,7 +155,8 @@ export function applyPitchOutcome(state: GameState, houseId: Id, outcome: PitchO
   const s = hs(state, houseId);
   if (outcome.result === 'deal' || outcome.result === 'trial') {
     if (clientForHouse(state, houseId)) return { ok: false, message: 'Already a client.', client: null };
-    const price = r2(outcome.price && outcome.price > 0 ? outcome.price : fairPrice(info.lawnM2, outcome.freq ?? 7, info.lot.kind));
+    const fair = fairPrice(info.lawnM2, outcome.freq ?? 7, info.lot.kind);
+    const price = r2(Number.isFinite(outcome.price) && (outcome.price ?? 0) >= 1 ? Math.min(outcome.price!, fair * 5) : fair);
     const freq = outcome.freq === 14 ? 14 : 7;
     const addOns = (outcome.addOns ?? []).filter((a) => a === 'bagging' || a === 'stripes' || a === 'fertilizer');
     const warm = isLead(state, s) ? s.leadTrust ?? 0.15 : 0;
@@ -174,6 +184,7 @@ export function applyPitchOutcome(state: GameState, houseId: Id, outcome: PitchO
     logDay(state, (l) => l.newClients.push({ address: info.address, price, by: outcome.result === 'trial' ? 'You (trial)' : 'You' }));
     checkUnlocks(state);
     checkAchievements(state);
+    checkGoals(state);
     const msg = outcome.result === 'trial' ? `Trial booked with ${info.ownerName}.` : `${info.ownerName} signed at $${price.toFixed(2)}.`;
     return { ok: true, message: msg, client: c };
   }

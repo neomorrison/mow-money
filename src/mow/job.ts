@@ -12,7 +12,7 @@ import { ModelKit } from './models';
 import { World } from './world';
 import { Body, buildColliders, resolve, type Colliders, type DriveInput, type VehicleParams, wrapAngle } from './mower';
 import { cutDeck, makeDeckOutcome, trim, blow, type DeckParams, type TrimOutcome, type BlowOutcome } from './cutting';
-import { computeResult, estimateQuality, type ScoreState } from './scoring';
+import { computeResult, estimateQuality, liveResult, projectedResult, type ScoreState } from './scoring';
 import { Hud } from './hud';
 import { Input, type Action } from './input';
 import { CameraRig } from './camera';
@@ -898,7 +898,7 @@ export class MowJob {
       this.statT -= dt;
       if (this.statT <= 0) {
         this.statT = 1.0;
-        this.measure(true);
+        this.measure(true, true);
       }
       const near = this.bag > this.bagCap * 0.05 && this.nearVehicle();
       this.hud.setBagPrompt(near);
@@ -927,6 +927,7 @@ export class MowJob {
   private cone!: THREE.Mesh;
   private warn!: THREE.Mesh;
   private guideSpacing = 1;
+  private projected: number | null = null;
   private guideAxisX = false;
   private runX = 0;
   private runZ = 0;
@@ -937,7 +938,7 @@ export class MowJob {
     if (!r) return null;
     if (this.bagCap > 0 && this.bag >= this.bagCap) return `Bag full. Drive to your ${VEHICLE_NAME[this.spec.vehicleModel || 'veh_bike'] ?? 'vehicle'} at the curb and press ${this.touch ? 'the bag prompt' : 'E'}.`;
     const cur = this.deckHeights[this.deckIdx];
-    if (this.lastQ && this.lastQ.penalties.some((p) => p.label === 'Grass was scalped') && this.deckIdx < this.deckHeights.length - 1)
+    if (this.lastQ && this.lastQ.penalties.some((p) => p.label === 'Grass was scalped' || p.label.startsWith('Lawn stressed')) && this.deckIdx < this.deckHeights.length - 1)
       return `Taking off too much at once stresses the lawn. Raise the deck (${this.touch ? 'up arrow' : 'E'}).`;
     if (this.deck.pushedOver > 20) return 'This grass is too tall for the mower. Make a second pass.';
     if (r.coverage > 0.93 && r.trim < 0.7 && this.spec.trimmer && this.tool === 1) return `Edges left. Trim along beds, walls and trees (${this.touch ? 'trimmer' : '2'}).`;
@@ -954,6 +955,7 @@ export class MowJob {
       minute: this.clockMinute(),
       late: this.clockMinute() > DAY_END - 30,
       quality: this.lastQ,
+      projected: this.projected,
       coverage: r?.coverage ?? 0,
       trim: r?.trim ?? 0,
       stripe: r?.stripe ?? 0,
@@ -967,8 +969,8 @@ export class MowJob {
     };
   }
 
-  /** Current measurements and the live quality preview. */
-  measure(completed: boolean): MowJobResult {
+  /** Current measurements and the quality preview (`live`: projected score that grows as you mow). */
+  measure(completed: boolean, live = false): MowJobResult {
     const s: ScoreState = {
       field: this.field, deckHeights: this.deckHeights, deckIndex: this.deckIdx, deckWidth: this.spec.mower.deckWidth ?? 1,
       stripeStrength: this.stripeStrength, damages: this.damages, realSeconds: this.active, timeScale: this.spec.timeScale,
@@ -977,7 +979,12 @@ export class MowJob {
     const r = computeResult(s, completed);
     this.lastResult = r;
     let q: QualityBreakdown;
-    try { q = computeQuality(this.spec, r); } catch { q = estimateQuality(this.spec, r); }
+    const qr = live ? liveResult(this.field, r) : r;
+    try { q = computeQuality(this.spec, qr); } catch { q = estimateQuality(this.spec, qr); }
+    if (live && r.coverage > 0.05 && r.coverage < 0.95) {
+      const pr = projectedResult(this.field, r);
+      try { this.projected = computeQuality(this.spec, pr).q; } catch { this.projected = estimateQuality(this.spec, pr).q; }
+    } else this.projected = null;
     this.lastQ = q;
     let hd = 0;
     for (let k = 0; k < this.field.n; k++) if (this.field.surf[k] === HARD) hd += this.field.debris[k] + this.field.leaves[k];

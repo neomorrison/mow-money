@@ -17,7 +17,7 @@ interface Step { text: (v: TutorialView) => string; done: (v: TutorialView) => b
 
 const STEPS: Step[] = [
   { text: (v) => (v.touch ? 'Drag on the left side of the screen to drive.' : 'Drive with W A S D or the arrow keys.'), done: (v) => v.moved > 6 },
-  { text: () => 'Mow the grass. Keep your passes straight and overlap them a little.', done: (v) => v.areaCut > 30 },
+  { text: () => 'Mow the grass. Follow the faint lane lines: straight back-and-forth passes lay stripes for a bonus.', done: (v) => v.areaCut > 30 },
   { text: (v) => (v.touch ? 'Tap the eye to flash the spots you missed.' : 'Press H to flash the spots you missed.'), done: (v) => v.flashed || v.coverage > 0.7 },
   { text: () => 'Cover the whole lawn. Clients notice every missed strip.', done: (v) => v.coverage > 0.8 },
   {

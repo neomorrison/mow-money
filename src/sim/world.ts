@@ -148,6 +148,26 @@ export function generateHood(seed: number, townId: string, hoodId: string): Hous
     for (const d of onStreet) d.info.mapX = Math.round((d.info.mapX - maxX / 2) * 10) / 10;
   }
   const out = drafts.map((d) => d.info);
+  // Site names are unique within a neighborhood (two offices never share "Building B").
+  if (hood.bidOnly) {
+    const used = new Map<string, number>();
+    for (const h of out) {
+      const names = SITE_NAMES[h.hoodId]?.[h.lot.style];
+      if (!names?.length) continue;
+      const n = used.get(h.lot.style) ?? 0;
+      used.set(h.lot.style, n + 1);
+      h.siteName = n < names.length ? names[(h.index + n) % names.length] : `${names[n % names.length]} ${Math.floor(n / names.length) + 1}`;
+    }
+    // resolve any clash left by the offset pick
+    const seen = new Set<string>();
+    for (const h of out) {
+      if (!h.siteName) continue;
+      let name = h.siteName;
+      for (let k = 2; seen.has(name); k++) name = `${h.siteName} ${k}`;
+      h.siteName = name;
+      seen.add(name);
+    }
+  }
   cache.set(key, out);
   for (const h of out) byId.set(`${seed}|${h.id}`, h);
   return out;
@@ -170,6 +190,7 @@ export function streetsOf(state: GameState, hoodKeyStr: string): { name: string;
 }
 
 export function siteName(info: HouseInfo): string {
+  if (info.siteName) return info.siteName;
   const names = SITE_NAMES[info.hoodId]?.[info.lot.style];
   if (!names) return info.address;
   return names[info.index % names.length];
@@ -408,7 +429,11 @@ export function knockBlockReason(state: GameState, info: HouseInfo): string {
   if (!state.hoods.includes(key)) return 'Neighborhood locked.';
   if (clientForHouse(state, info.id)) return 'Already a client.';
   if (info.noSoliciting && !isLead(state, s)) return 'No Soliciting sign on the door.';
-  if (isCold(state, s)) return s?.lastKnockDay === state.day && s?.coldUntil === state.day + 1 ? 'You already pitched here today.' : 'They asked you to come back later.';
+  if (isCold(state, s)) {
+    if (s?.lastKnockDay === state.day && s?.coldUntil === state.day + 1) return 'You already pitched here today.';
+    const days = Math.max(1, (s?.coldUntil ?? state.day + 1) - state.day);
+    return days === 1 ? 'Not interested right now. Try again tomorrow.' : `Not interested right now. Try again in ${days} days.`;
+  }
   return '';
 }
 

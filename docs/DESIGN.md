@@ -77,7 +77,7 @@ Market fair price per mow for a lawn of `A` square feet (lawn only, not the lot)
 ```
 fair(A) = 1.3 * (20 + 0.052 * A^0.725)      (weekly service; 1.3 = PRICE_SCALE, arcade pay)
 biweekly = fair * 1.20                      (taller grass, fewer visits)
-commercial = fair * 1.15                    (parks too; golf fairways fair * 2.5, mowed like three visits)
+commercial = fair * 1.5                     (parks too; golf fairways fair * 4, and the club mows between visits so fairway grass grows a third as fast)
 ```
 
 Examples: 3,800 sq ft = $53, 11,000 = $84, 22,000 = $121, 43,560 (1 acre) = $182. Sublinear on purpose: big lawns are cheaper per square foot, matching real pricing and rewarding productive equipment.
@@ -99,9 +99,9 @@ patience   = archetype.patience + {-1, 0, +1}                negotiation rounds
 anchor     = archetype.anchor + U(-0.05, 0.05)               opening counter as a fraction of R
 ```
 
-Answer probability when you knock depends on the archetype's `home` profile (day 08:00 to 17:00, evening 17:00 to 19:30) and on weekends (x1.3, capped at 0.95). Warm leads answer at least 85 percent of the time. Doors can be knocked from 07:30: before 08:30 the chance is x0.6, from 08:30 to 09:00 x0.85. A knock costs 4 minutes (2 with the Door Pro perk).
+Answer probability when you knock depends on the archetype's `home` profile (day 08:00 to 17:00, evening 17:00 to 19:30) and on weekends (x1.3, capped at 0.95). Warm leads answer at least 85 percent of the time. Doors can be knocked from 07:30: before 08:30 the chance is x0.75, from 08:30 to 09:00 x0.9. A knock costs 4 minutes (2 with the Door Pro perk).
 
-Not everyone who opens the door wants a service. Before the pitch starts, a DIY owner turns you away with `pNo = clamp(0.65 - 0.12 * (h - 3), 0.10, 0.70)` where `h` is their grass height (tall lawns are the best prospects), a rival's client with 0.40 (budget rival) or 0.55 (premium rival), and warm leads or HOA-letter houses with 0.05. A refusal makes the house cold for 3 days. A rejected pitch blocks a second pitch the same day.
+Not everyone who opens the door wants a service. Before the pitch starts, a DIY owner turns you away with `pNo = clamp(0.65 - 0.12 * (h - 3), 0.10, 0.70)` where `h` is their grass height (tall lawns are the best prospects), a rival's client with 0.40 (budget rival) or 0.55 (premium rival), and warm leads or HOA-letter houses with 0.05. About 30 percent of DIY households love mowing their own lawn and refuse with 0.97 whatever the grass height and stay cold for 10 days (a referral lead still gets through). Any other refusal makes the house cold for 3 days. A rejected pitch blocks a second pitch the same day.
 
 `PitchContext.house.V` already includes the situational need multipliers above (over 5.5 in, HOA letter).
 
@@ -198,10 +198,12 @@ Tips come from performance and charm. Each client has a rapport `r` in [0, 1] (s
 - Performance tip, rolled on every paid visit with `Q >= E - 4`: `P = clamp(0.3 + 0.03 * (Q - E) + 0.35 * r, 0.05, 0.92)`. Amount, all times `archetype.tipMult`: work `price * (U(0.05, 0.10) + 0.005 * clamp(Q - E, 0, 25))`, hot streak `work * 0.08 * min(5, streak)` from a streak of 2 owner jobs that met E without damage, stripes `price * 0.05 * stripe` when stripe >= 0.5 (doubled for stripe lovers), charm `price * 0.08 * r` when r >= 0.3.
 - Small talk (once per visit, on the result screen): the player picks a tone and the archetype's tone affinity decides the reply. Liked: r +0.10, satisfaction +2, charm tip `price * (0.04 + 0.12 * r) * (0.5 + 0.5 * tipMult)`. Neutral: r +0.03, 35 percent chance of `price * 0.035 * (0.5 + 0.5 * tipMult)`. Disliked: r -0.06, satisfaction -2. A job 10 or more under E cuts the charm tip to 40 percent. The Charmer perk turns dislikes into neutral, doubles rapport gains and adds 50 percent to charm tips.
 
-Reputation is a Bayesian average of recent stars with a 3.0 prior worth 5 ratings and recency weight 0.98 per rating, over the last 60 ratings:
+**Daily goals.** Every morning outside winter the hub rolls three goals from the ones that fit the day (knock N doors, sign clients, finish N jobs yourself, mow N lawns at four stars, lay great stripes (stripe score 0.7 or better), win clients over with small talk, earn $X from lawns, earn $X in tips), at most one door goal when others are available. Each pays `min(160, 0.5 * avgClientPrice + 5)` cash and 20 to 25 XP when finished; clearing all three pays a clean sweep bonus of `min(250, avgClientPrice + 10)` and 40 XP. Day one is fixed: sign two clients, knock five doors, lay stripes on a lawn.
+
+Reputation is a Bayesian average of recent stars with a 3.0 prior worth 5 ratings and recency weight 0.99 per rating, over the last 150 ratings (about a week of work for a busy company, so one rainy day barely moves it):
 
 ```
-rep = (5 * 3.0 + sum(w_j * stars_j)) / (5 + sum(w_j)),   w_j = 0.98^age_j
+rep = (5 * 3.0 + sum(w_j * stars_j)) / (5 + sum(w_j)),   w_j = 0.99^age_j
 ```
 
 A steady Q of 80 settles near 4.05, Q 85 near 4.45, Q 90 near 4.75.
@@ -226,7 +228,7 @@ mowing takes x1.5 when the grass is taller than the mower's maxGrassIn, everythi
 
 With two or more crew members, trimming and blowing overlap the mowing: `6 + max(mow, trim + blow)`.
 
-Wear: blade sharpness drops `0.05 * wearMult` per 1,000 m2 cut (exported as `BLADE_WEAR_PER_1000`). Sharpening costs $6 and 15 minutes at the HQ, or is free overnight with a mechanic or sharpening station. Condition drops 0.002 per engine hour. Breakdown chance per job `= (1 - reliability) * (1.5 - condition)`, repair `= 0.08 * price * (1.2 - condition)`, and the job is lost for the day.
+Wear: blade sharpness drops `0.05 * wearMult` per 1,000 m2 cut (exported as `BLADE_WEAR_PER_1000`). Sharpening costs $6 and 15 minutes at the HQ, or is free overnight with a mechanic or sharpening station. Condition drops 0.002 per engine hour. Breakdown chance per engine hour `= 0.5 * (1 - reliability) * (1.5 - condition)` (x0.4 with a mechanic). A breakdown is fixed on site for `0.08 * price * (1.2 - condition)`, brings the machine back to at least 0.9 condition and costs that job plus 30 minutes (owner) or an hour of the crew's day.
 
 Fuel: `fuelGalPerHr * hours * fuelPrice`. Fuel price starts at $3.60 and moves by a weekly random walk (sigma 4 percent, clamped $2.80 to $5.20).
 
@@ -238,8 +240,8 @@ Transport: the vehicle's `capacity` must cover the `transportSize` of the carrie
 |---|---|---|---|---|---|---|
 | maple | Maple Grove | 260 to 420 | 0.85 to 1.10 | 48 | 0.5 | start |
 | oak | Oak Hills | 480 to 900 | 1.00 to 1.25 | 56 | 3 | rep 3.4 and 4 clients |
-| willow | Willow Creek Estates | 1,400 to 3,000 | 1.30 to 1.80 | 32 | 7 | rep 3.9, a truck |
-| heritage | Heritage Hills | 2,500 to 5,000 | 1.80 to 2.60 | 24 | 12 | rep 4.3, a riding mower |
+| willow | Willow Creek Estates | 1,400 to 3,000 | 1.30 to 1.80 | 32 | 7 | rep 3.8, a truck |
+| heritage | Heritage Hills | 2,500 to 5,000 | 1.80 to 2.60 | 24 | 12 | rep 4.2, a riding mower |
 | pinecrest | Pinecrest Business Park | 3,000 to 6,000 | commercial | 14 | 9 | rep 4.0, insurance, 1 crew |
 | parks | Civic Parks and Fields | 8,000 to 15,000 | municipal | 8 | 6 | rep 4.2, wide-area mower |
 | links | Fairway Links Golf Club | 20,000 | premium | 1 | 15 | rep 4.5, gang reel mower |
@@ -265,7 +267,7 @@ Roles, market wage per hour for skill `s` in [0, 100]:
 
 Paid 10 hours per workday. Crews are a vehicle, a mower, a trimmer and a blower plus one or more members, one of them a lead or the owner. Crew daily capacity is 600 minutes minus travel, jobs sorted by overdue first, then by neighborhood.
 
-Morale drifts 10 percent per day toward `60 + 1.2 * (wage - marketWage) + 10 * recentRaise - 8 * overtimeDays`. Weekly quit chance `0.25 / (1 + exp((morale - 30) / 6))`. No-show chance per day `(1 - reliability) * 0.5`. Skill grows `(100 - skill) * 0.0005` per job (x2 with the Trainer perk; sales reps grow 4x that per signed client), so a crew member closes about a third of the gap to 100 in a busy season. Wages follow skill, so good people ask for raises.
+Morale drifts 10 percent per day toward `60 + 60 * (wage / marketWage - 1) + 10 * recentRaise` (+10 Motivator, +5 Loyal). Weekly quit chance `0.25 / (1 + exp((morale - 35) / 6))`. No-show chance per day `(1 - reliability) * 0.5 * (1 + max(0, 50 - morale) / 25)`. Nobody works for less than 80 percent of their market wage. Skill grows `(100 - skill) * 0.0005` per job (x2 with the Trainer perk; sales reps grow 4x that per signed client), so a crew member closes about a third of the gap to 100 in a busy season. Wages follow skill, so good people ask for raises.
 
 Sales rep daily: 30 knocks, answers at the neighborhood's average rate, close chance `0.08 + 0.22 * skill/100 * rep/5 * remainingShare`, price `V * (0.88 + 0.20 * skill/100) * LogNormal(0, 0.05)`.
 
@@ -275,7 +277,7 @@ The hiring board refreshes every Monday with 4 to 6 candidates (portrait, traits
 
 Each town has two rivals, a budget outfit (price index 0.85, quality 68) and a premium one (1.15, 86). 20 to 35 percent of each residential neighborhood starts with a rival. Rival clients start at T -0.10 but the "beat your current service" point works on the budget rival. Lost clients go to a rival (60 percent) or back to DIY. A rival active in a neighborhood multiplies churn by 1.3 for clients below S = 55.
 
-Bids: each unlocked commercial or municipal neighborhood posts a request for proposal with weekly probability 0.3 (golf: one 12-week contract a year, posted in spring). Term 12 to 26 weeks (counted on Sundays outside winter), weekly service, closes in 3 days. Each rival bids `fairCommercial * rival.priceIndex * LogNormal(0, 0.08)`. The award goes to the lowest `bid / (1 + 0.12 * (rep - 3.5))`. A won contract terminates after three consecutive services with Q < 70.
+Bids: each unlocked commercial or municipal neighborhood posts a request for proposal with weekly probability 0.3 (golf: one 12-week contract a year, posted in spring). Term 12 to 26 weeks (counted on Sundays outside winter), weekly service, closes in 3 days. Each rival bids `fairCommercial * rival.priceIndex * LogNormal(0, 0.08)`. The award goes to the lowest `bid / (1 + 0.12 * (rep - 3.5))`. A won contract terminates after three consecutive services with Q < 70; a week with no visit counts as one (satisfaction -15).
 
 ## 16. Finance
 
@@ -328,8 +330,8 @@ XP: a manual job gives `Q / 5`, an autopilot job `Q / 20`, a deal 25, a won bid 
 
 - **Owner clock.** `owner.minute` runs from 450 to 1170. Every action that costs time (travel, knock, pitch, job, sharpening) is refused with "Not enough daylight." when it would pass 19:30. Knocking is open all day (fewer answers before 09:00). End Day resets the clock to 07:30 at the HQ.
 - **Transport.** The owner's vehicle capacity must cover the owner's mower `transportSize`, otherwise manual and autopilot jobs are refused. The bicycle carries push mowers only. New mowers join the kit when they beat the current mower and fit the vehicle; otherwise they wait in the garage.
-- **Due jobs.** A client is due from `nextDueDay - 1` (one day early allowed). `daysOverdue = max(0, today - nextDueDay - 1)`. Sundays and storm days carry no lateness penalty. Winter pauses every contract until spring day 1.
+- **Due jobs.** A client is due from `nextDueDay - 1` (one day early allowed). `daysOverdue = max(0, today - nextDueDay - 1)`. After a visit `nextDueDay = max(today, nextDueDay) + freq`, so an early visit keeps the schedule. Sundays and storm days carry no lateness penalty. Winter pauses every contract; each client keeps its place in the weekly rotation, so spring starts staggered. The day report lists a job as missed only once its grace day has passed.
 - **Grass.** Client lawns are tracked in the save and grown each night with that day's weather. Other lawns are a pure function of the house seed and the day (DIY cycle, rivals every 7 days), so they are never saved.
-- **Crews.** A crew needs at least one member, a mower and a vehicle that can carry it. Capacity is 600 minutes a workday including travel from the base and back. The office manager dispatches the owner's leftover due jobs to crews at End Day; without one, the player assigns jobs.
+- **Crews.** A crew needs at least one member, a mower and a vehicle that can carry it. Capacity is 600 minutes a workday including travel from the base and back. The office manager dispatches the owner's leftover due jobs to crews at End Day; without one, the player assigns jobs. Every morning, jobs held by a crew that cannot work, and overdue jobs that do not fit in their crew's day, come back to the owner. Taking gear from the owner's kit for a crew is allowed; the owner falls back to the best spare.
 - **Tutorial.** `flags.tutorial`: 1 knock on Rose Albright (101 Maple Ln, a warm lead with a 5 in lawn), 2 mow her lawn, 3 knock three doors, 4 end the day, 0 done.
 - **End Day order.** Crews, sales reps, grass growth, lateness, churn, leads, Sunday items (referrals, price check, contract terms, quits), wages, morale, Monday items (hiring board, loans, insurance, fuel price), bids, events, overnight maintenance, overdraft, season change (taxes, winter pause, spring renewal), weather, unlocks, summary, next morning.

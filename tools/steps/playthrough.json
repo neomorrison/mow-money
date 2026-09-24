@@ -3,7 +3,7 @@
   "goto": "/?pad=0"
  },
  {
-  "waitFor": "window.__mm",
+  "waitFor": "!!window.__mm",
   "timeout": 60000
  },
  {

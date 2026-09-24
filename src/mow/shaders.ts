@@ -202,7 +202,7 @@ function groundFragment(): string {
     // dirty concrete glows while the blower is out, so it is obvious what is left to clean
     // same threshold the cleanup score uses (traces under 0.03 do not count)
     float dirt = smoothstep(0.02, 0.07, C.g + C.b) * B.g;
-    col = mix(col, vec3(1.0, 0.58, 0.1), dirt * uCleanHi * (0.6 + 0.25 * sin(uTime * 6.0)));
+    col = mix(col, vec3(1.0, 0.56, 0.08), dirt * uCleanHi * (0.75 + 0.2 * sin(uTime * 6.0)));
   }
   col *= 1.0 - uWet * 0.14;
   vec4 diffuseColor = vec4(col, opacity);

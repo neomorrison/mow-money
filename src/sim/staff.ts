@@ -11,6 +11,7 @@ import { addLedger, hasPerk, newId, r1, r2, logDay, withRng } from './util';
 import { reputation } from './reputation';
 import { clientForHouse, grassHeight, hoodHouses, hs, isCold, providerOf } from './world';
 import { calendar } from './calendar';
+import { lovesMowing } from './knock';
 import { serviceMult } from './pricing';
 
 export const ROLE_LABEL: Record<StaffRole, string> = {
@@ -107,6 +108,9 @@ export function setWage(state: GameState, employeeId: Id, wage: number): ActionR
   const e = state.staff.find((x) => x.id === employeeId);
   if (!e) return { ok: false, message: 'Unknown employee.' };
   if (!Number.isFinite(wage) || wage < 7.25) return { ok: false, message: 'Minimum wage is $7.25.' };
+  const floor = Math.ceil(marketWage(e.role, e.skill) * 0.8 * 4) / 4;
+  if (wage < floor) return { ok: false, message: `${e.name.split(' ')[0]} will not work for less than $${floor.toFixed(2)} an hour.` };
+  if (wage > 500) return { ok: false, message: 'That is more than the whole crew makes.' };
   const w = Math.round(wage * 4) / 4;
   if (w > e.wage) {
     e.lastRaiseDay = state.day;
@@ -131,7 +135,9 @@ export function assignSalesHood(state: GameState, employeeId: Id, key: string): 
 
 export function moraleTarget(state: GameState, e: Employee): number {
   const recentRaise = e.lastRaiseDay !== undefined && state.day - e.lastRaiseDay <= 14 ? 1 : 0;
-  let t = 60 + 1.2 * (e.wage - marketWage(e.role, e.skill)) + 10 * recentRaise;
+  // pay relative to the market drives morale: 90 percent of market sits near 54, 110 percent near 66
+  const market = Math.max(1, marketWage(e.role, e.skill));
+  let t = 60 + 60 * (e.wage / market - 1) + 10 * recentRaise;
   if (hasPerk(state, 'motivator')) t += 10;
   if (e.traits.includes('Loyal')) t += 5;
   return clamp(t, 0, 100);
@@ -150,7 +156,7 @@ export function weeklyQuits(state: GameState, rng: Rng): { name: string; event: 
   const out: { name: string; event: string }[] = [];
   for (const e of [...state.staff]) {
     if (e.laidOff) continue;
-    const p = 0.25 / (1 + Math.exp((e.morale - 30) / 6));
+    const p = 0.25 / (1 + Math.exp((e.morale - 35) / 6));
     if (rng.chance(p)) {
       removeFromCrews(state, e.id);
       state.staff = state.staff.filter((x) => x !== e);
@@ -195,7 +201,7 @@ export function runSalesReps(state: GameState, rng: Rng): { newClients: Client[]
   const rep = reputation(state);
   for (const e of state.staff) {
     if (e.role !== 'sales' || e.laidOff || !e.assignedHood) continue;
-    if (rng.chance((1 - e.reliability) * 0.5)) { lines.push({ name: e.name, event: 'No-show today.' }); continue; }
+    if (rng.chance((1 - e.reliability) * 0.5 * (1 + Math.max(0, 50 - e.morale) / 25))) { lines.push({ name: e.name, event: 'No-show today.' }); continue; }
     const key = e.assignedHood;
     const hood = HOOD_BY_ID[splitHoodKey(key).hoodId];
     if (!hood || hood.bidOnly || !state.hoods.includes(key)) continue;
@@ -212,7 +218,8 @@ export function runSalesReps(state: GameState, rng: Rng): { newClients: Client[]
       const i = Math.floor(rng.next() * pool.length);
       const h = pool.splice(i, 1)[0];
       if (!rng.chance(hood.answerRate)) continue;
-      const close = (0.08 + 0.22 * (e.skill / 100) * (rep / 5) * remainingShare) * chatty * (providerOf(state, h) === 'rival' ? 0.7 : 1);
+      const loyalDiy = providerOf(state, h) !== 'rival' && lovesMowing(h.propertySeed);
+      const close = (0.08 + 0.22 * (e.skill / 100) * (rep / 5) * remainingShare) * chatty * (providerOf(state, h) === 'rival' ? 0.7 : 1) * (loyalDiy ? 0.1 : 1);
       if (!rng.chance(close)) {
         const s = hs(state, h.id);
         s.coldUntil = state.day + 5;

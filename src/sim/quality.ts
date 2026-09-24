@@ -67,6 +67,18 @@ export function computeQuality(spec: MowJobSpec, result: MowJobResult): QualityB
   }
   // Dull blade is shown as a penalty for readability but is already inside `scaled`.
   const deductions = penalties.filter((p) => p.label !== 'Dull blade').reduce((s, p) => s + p.points, 0);
+  // the same mistake twice reads as one line with a count
+  const grouped: { label: string; points: number }[] = [];
+  for (const p of penalties) {
+    const g = grouped.find((x) => x.label === p.label || x.label.startsWith(`${p.label} x`));
+    if (g) {
+      const n = (g.label.match(/ x(\d+)$/) ? Number(g.label.match(/ x(\d+)$/)![1]) : 1) + 1;
+      g.label = `${p.label} x${n}`;
+      g.points = Math.round((g.points + p.points) * 10) / 10;
+    } else grouped.push({ ...p });
+  }
+  penalties.length = 0;
+  penalties.push(...grouped);
   q = clamp(q - deductions, 0, 100);
   q = Math.round(q * 10) / 10;
   return { q, stars: Math.round(starsFor(q) * 10) / 10, parts, penalties, capped };

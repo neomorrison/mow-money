@@ -70,7 +70,7 @@ function overview(s: GameState): Raw {
       <div class="ui-card__head"><span class="ui-card__title">${raw(icon('shield'))}Insurance</span>
         <label class="ui-toggle"><input type="checkbox" ${s.insured ? raw('checked') : ''} data-change="insure"><span class="ui-toggle__track"></span><span class="ui-sr">Insurance</span></label>
       </div>
-      <p class="ui-small ui-muted">${money(insCost)} per week (${money(30)} plus ${money(10)} per employee). Covers damage claims above a ${money(100)} deductible. Required to hire staff and bid on commercial work.</p>
+      <p class="ui-small ui-muted">${money(insCost)} per week: ${money(30)} base plus ${money(10)} per employee (${s.staff.length} now). Covers damage claims above a ${money(100)} deductible. Required to hire staff and bid on commercial work.</p>
       <div style="margin-top:10px">${s.insured ? html`<span class="ui-chip">${raw(icon('check'))}Covered</span>` : html`<span class="ui-chip ui-chip--orange">${raw(icon('alert'))}Not covered</span>`}</div>
     </div>
     <div class="ui-card ui-card--flat">

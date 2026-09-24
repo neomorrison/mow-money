@@ -165,6 +165,39 @@ export function computeResult(s: ScoreState, completed: boolean, withStripe = tr
   };
 }
 
+/**
+ * The live readout during a job: a projection that grows as you work instead of a snapshot of a half-cut
+ * lawn. Evenness only looks at grass already cut, and evenness, cleanup and no-clumps count in proportion to
+ * coverage, so an untouched lawn reads near zero and the number climbs with every pass.
+ */
+/** Evenness of the grass already cut (the live readouts use it). */
+function cutEvenness(f: GrassField): number {
+  let n = 0, sum = 0, sum2 = 0;
+  for (let k = 0; k < f.n; k++) {
+    if (f.surf[k] !== LAWN || !f.cutOnce[k]) continue;
+    const h = f.h[k];
+    n++; sum += h; sum2 += h * h;
+  }
+  const mean = n ? sum / n : 0;
+  const sd = n ? Math.sqrt(Math.max(0, sum2 / n - mean * mean)) : 0;
+  return n ? clamp01(1 - sd / 1.0) : 0;
+}
+
+/** What the job scores if the rest of the lawn is mowed as well as the part already done. */
+export function projectedResult(f: GrassField, r: MowJobResult): MowJobResult {
+  return { ...r, coverage: 1, evenness: cutEvenness(f) };
+}
+
+export function liveResult(f: GrassField, r: MowJobResult): MowJobResult {
+  const cov = clamp01(r.coverage);
+  return {
+    ...r,
+    evenness: cutEvenness(f) * cov,
+    cleanup: clamp01(r.cleanup) * cov,
+    clumps: 1 - (1 - clamp01(r.clumps)) * cov,
+  };
+}
+
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const round = (x: number, d: number) => Math.round(x * 10 ** d) / 10 ** d;
 

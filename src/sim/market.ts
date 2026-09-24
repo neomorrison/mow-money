@@ -7,6 +7,7 @@ import { LEAD_DAYS, LEAD_TRUST, MARKETING, MARKETING_DAYS, REFERRAL_TRUST, XP_BI
 import { addLedger, newId, r2, logDay } from './util';
 import { reputation, starsFor } from './reputation';
 import { fairPrice } from './pricing';
+import { lovesMowing } from './knock';
 import { calendar } from './calendar';
 import { clientForHouse, hoodHouses, houseInfo, hs, isCold, isLead, providerOf, siteName, grassHeight, houseHoodKey } from './world';
 import { addXp } from './owner';
@@ -64,6 +65,8 @@ function leadCandidates(state: GameState, key: string): HouseInfo[] {
   return hoodHouses(state, key).filter((h) => {
     if (clientForHouse(state, h.id)) return false;
     const s = state.houses[h.id];
+    // people who love mowing their own lawn never call a lawn company
+    if (providerOf(state, h) !== 'rival' && lovesMowing(h.propertySeed)) return false;
     return !isLead(state, s) && !isCold(state, s);
   });
 }
@@ -245,6 +248,12 @@ export function tickContracts(state: GameState, rng: Rng, onLost: (c: Client, re
   for (const c of [...state.clients]) {
     if (!c.commercial) continue;
     c.commercial.weeksLeft -= 1;
+    // a week with no visit counts like a poor visit; three in a row and the site cancels
+    if (state.day - c.since >= 7 && c.lastServiceDay < state.day - 7) {
+      c.commercial.lowStreak += 1;
+      c.satisfaction = Math.max(0, Math.round((c.satisfaction - 15) * 10) / 10);
+      if (c.commercial.lowStreak >= 3) { onLost(c, 'Contract terminated: missed visits'); continue; }
+    }
     if (c.commercial.weeksLeft <= 0) onLost(c, 'Contract ended');
   }
   void rng;

@@ -14,12 +14,12 @@ export const HOODS: HoodSpec[] = [
   },
   {
     id: 'willow', name: 'Willow Creek Estates', kind: 'estate', lawnM2: [1400, 3000], wealth: [1.3, 1.8], houses: 32, km: 7,
-    baseLeads: 0.5, unlock: { rep: 3.9, vehicle: true }, styles: ['colonial', 'modern', 'mansion'], answerRate: 0.45,
+    baseLeads: 0.5, unlock: { rep: 3.8, vehicle: true }, styles: ['colonial', 'modern', 'mansion'], answerRate: 0.45,
     blurb: 'Big properties, bigger expectations.',
   },
   {
     id: 'heritage', name: 'Heritage Hills', kind: 'estate', lawnM2: [2500, 5000], wealth: [1.8, 2.6], houses: 24, km: 12,
-    baseLeads: 0.35, unlock: { rep: 4.3, rideOn: true }, styles: ['mansion', 'modern'], answerRate: 0.4,
+    baseLeads: 0.35, unlock: { rep: 4.2, rideOn: true }, styles: ['mansion', 'modern'], answerRate: 0.4,
     blurb: 'Gated estates. Stripes are not optional.',
   },
   {

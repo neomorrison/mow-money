@@ -4,6 +4,7 @@ import { encodeSave, decodeSave } from '../src/core/save';
 import { makeRng } from '../src/core/rng';
 import type { GameState } from '../src/core/types';
 import { botNegotiate, profile, runBot } from '../tools/bots';
+import { ARCHETYPE_BY_ID } from '../src/data/archetypes';
 
 function walk(o: unknown, path: string, bad: string[]): void {
   if (typeof o === 'number') { if (!Number.isFinite(o)) bad.push(path); return; }
@@ -23,7 +24,7 @@ function invariants(s: GameState): void {
   }
   expect(s.owner.minute).toBeGreaterThanOrEqual(sim.DAY_START);
   expect(s.owner.minute).toBeLessThanOrEqual(sim.DAY_END);
-  expect(s.ratings.length).toBeLessThanOrEqual(60);
+  expect(s.ratings.length).toBeLessThanOrEqual(150);
   expect(s.days.length).toBeLessThanOrEqual(120);
   expect(s.lost.length).toBeLessThanOrEqual(40);
   expect(JSON.parse(JSON.stringify(s))).toEqual(s);
@@ -150,6 +151,82 @@ describe('morning, tips and small talk', () => {
     expect(cold.reaction).toBe('disliked');
     expect(cold.tip).toBe(0);
     invariants(s);
+  });
+});
+
+describe('daily goals', () => {
+  it('rolls three goals each morning and pays for finished ones', () => {
+    const s = sim.newGame({ companyName: 'Goals', color: '#3a3', seed: 31 });
+    expect(s.goals?.day).toBe(0);
+    expect(s.goals?.list.map((g) => g.kind)).toEqual(['deals', 'knocks', 'stripes']);
+    const knockGoal = s.goals!.list.find((g) => g.kind === 'knocks')!;
+    const cash = s.cash;
+    let n = 0;
+    for (const h of sim.housesInHood(s, 'home.maple')) {
+      if (n >= knockGoal.target) break;
+      if (!h.canKnock || h.info.id === sim.TUTORIAL_HOUSE) continue;
+      if (sim.knock(s, h.info.id).ok) n++;
+    }
+    expect(knockGoal.done).toBe(true);
+    expect(s.cash).toBeCloseTo(cash + knockGoal.reward, 2);
+    sim.endDay(s);
+    expect(s.goals?.day).toBe(1);
+    expect(s.goals?.list.length).toBe(3);
+    expect(new Set(s.goals!.list.map((g) => g.kind)).size).toBe(3);
+    invariants(s);
+  });
+});
+
+describe('playtest round two fixes', () => {
+  const signed = (seed: number, n: number) => {
+    const s = sim.newGame({ companyName: 'R2', color: '#3a3', seed });
+    s.hoods.push('home.oak');
+    const houses = [...sim.housesInHood(s, 'home.maple'), ...sim.housesInHood(s, 'home.oak')].filter((h) => h.canKnock).slice(0, n);
+    for (const h of houses) sim.applyPitchOutcome(s, h.info.id, { result: 'deal', price: 50, freq: 7, addOns: [], trust: 0.5, rounds: 1, minutes: 0, summary: '' });
+    return s;
+  };
+  it('spring does not bring every lawn due on the same day', () => {
+    const s = signed(41, 14);
+    s.clients.forEach((c, i) => { c.nextDueDay = s.day + (i % 7); });
+    while (sim.calendar(s.day).season !== 'winter') {
+      // keep every lawn on its weekly rotation
+      for (const c of s.clients) if (c.nextDueDay <= s.day) { c.lastServiceDay = s.day; c.nextDueDay = s.day + 7; c.satisfaction = 80; }
+      sim.endDay(s);
+    }
+    while (sim.calendar(s.day).season === 'winter') sim.endDay(s);
+    const due = new Set(s.clients.map((c) => c.nextDueDay));
+    expect(due.size).toBeGreaterThan(3);
+  });
+  it('a client refuses add-ons they do not care about', () => {
+    const s = signed(42, 40);
+    const c = s.clients.find((x) => Object.keys(ARCHETYPE_BY_ID[sim.houseInfo(s, x.houseId).archetypeId].addOnAffinity).length === 0)!;
+    expect(c).toBeDefined();
+    c.price = c.R;
+    const before = c.price;
+    const r = sim.changeService(s, c.id, { addOns: ['bagging', 'stripes', 'fertilizer'] });
+    expect(r.ok).toBe(false);
+    expect(c.price).toBe(before);
+  });
+  it('staff will not work far under the market wage', () => {
+    const s = signed(43, 1);
+    s.cash = 5000;
+    s.insured = true;
+    const k = s.candidates[0];
+    expect(sim.hire(s, k.id).ok).toBe(true);
+    const e = s.staff[0];
+    expect(sim.setWage(s, e.id, 7.25).ok).toBe(false);
+    expect(sim.setWage(s, e.id, sim.marketWage(e.role, e.skill)).ok).toBe(true);
+  });
+  it('jobs assigned to a crew that cannot work come back to the owner', () => {
+    const s = signed(44, 6);
+    s.cash = 20000;
+    s.insured = true;
+    const cr = sim.createCrew(s, 'Alpha');
+    expect(cr.ok).toBe(true);
+    const crew = s.crews[0];
+    for (const c of s.clients) c.assignee = crew.id;
+    sim.endDay(s);
+    expect(s.clients.every((c) => c.assignee === 'owner')).toBe(true);
   });
 });
 

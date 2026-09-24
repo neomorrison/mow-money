@@ -64,7 +64,9 @@ function render(): Raw {
   const o = r.outcome;
   const b = o.breakdown;
   const mood = MOOD[o.mood] || MOOD.neutral;
-  const dS = o.satisfactionAfter - o.satisfactionBefore;
+  // small talk can nudge satisfaction after the job
+  const sAfter = r.talk ? r.talk.satisfaction : o.satisfactionAfter;
+  const dS = sAfter - o.satisfactionBefore;
   const q = Math.round(o.q);
   const events = (o.events || []).filter((e) => !/^tip\b/i.test(e));
   const reduced = prefs.reducedMotion || !!r.shown;
@@ -102,12 +104,12 @@ function render(): Raw {
           ${o.trialResult ? html`<div class="ui-note ${o.trialResult === 'signed' ? 'ui-note--good' : 'ui-note--bad'}" style="margin-top:12px">${raw(icon(o.trialResult === 'signed' ? 'handshake' : 'x'))}${o.trialResult === 'signed' ? 'Trial passed. They signed on as a client.' : 'Trial failed. They passed on the contract.'}</div>` : ''}
           <div style="margin-top:16px">
             <div class="ui-row" style="justify-content:space-between"><span class="ui-label">Satisfaction</span>
-              <span class="ui-strong ui-num">${Math.round(o.satisfactionBefore)} ${raw(icon('arrowR'))} <span style="color:${satColor(o.satisfactionAfter)}">${Math.round(o.satisfactionAfter)}</span>
+              <span class="ui-strong ui-num">${Math.round(o.satisfactionBefore)} ${raw(icon('arrowR'))} <span style="color:${satColor(sAfter)}">${Math.round(sAfter)}</span>
               <span class="ui-chip ${dS >= 0 ? '' : 'ui-chip--red'}" style="margin-left:4px">${dS >= 0 ? '+' : ''}${dS.toFixed(0)}</span></span></div>
             <div class="ui-satdelta" style="margin-top:6px">
-              ${bar(clamp(o.satisfactionAfter / 100, 0, 1), { color: satColor(o.satisfactionAfter), cls: 'ui-bar--thick', cmp: o.satisfactionBefore / 100 })}
+              ${bar(clamp(sAfter / 100, 0, 1), { color: satColor(sAfter), cls: 'ui-bar--thick', cmp: o.satisfactionBefore / 100 })}
             </div>
-            <div class="ui-tiny ui-muted" style="margin-top:4px">${satLabel(o.satisfactionAfter)}</div>
+            <div class="ui-tiny ui-muted" style="margin-top:4px">${satLabel(sAfter)}</div>
           </div>
         </div>
 

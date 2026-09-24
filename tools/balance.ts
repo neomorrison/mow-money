@@ -57,7 +57,7 @@ within('solid: zero-turn day', of('solid', (r) => r.m.zeroTurn), 15, 45);
 checks.push({ name: 'solid: solvent (min cash > -$500)', ok: rows.filter((r) => r.bot === 'solid').every((r) => r.m.minCash > -500), value: rows.filter((r) => r.bot === 'solid').map((r) => Math.round(r.m.minCash)).join(', ') });
 checks.push({ name: 'novice: never bankrupt (min cash > -$500)', ok: rows.filter((r) => r.bot === 'novice').every((r) => r.m.minCash > -500), value: rows.filter((r) => r.bot === 'novice').map((r) => Math.round(r.m.minCash)).join(', ') });
 checks.push({ name: 'novice: slower than solid (truck later or valuation lower)', ok: median(of('novice', (r) => r.valuation)) < median(of('solid', (r) => r.valuation)), value: `${money(median(of('novice', (r) => r.valuation)))} vs ${money(median(of('solid', (r) => r.valuation)))}` });
-within('expert: $1M valuation day (within 4 years)', of('expert', (r) => r.m.million), 0, EXPERT_DAYS);
+within('expert: $1M valuation day', of('expert', (r) => r.m.million), 20, 250);
 
 console.log('');
 for (const c of checks) console.log(`${c.ok ? 'PASS' : 'FAIL'}  ${c.name}  (${c.value})`);

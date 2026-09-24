@@ -18,7 +18,7 @@ describe('prices (DESIGN 6)', () => {
   it('applies biweekly and commercial multipliers', () => {
     const w = sim.fairPrice(1000);
     expect(sim.fairPrice(1000, 14)).toBeCloseTo(w * 1.2, 1);
-    expect(sim.fairPrice(1000, 7, 'commercial')).toBeCloseTo(w * 1.15, 1);
+    expect(sim.fairPrice(1000, 7, 'commercial')).toBeCloseTo(w * 1.5, 1);
     expect(sim.fairPrice(400)).toBeLessThan(sim.fairPrice(800));
   });
 });

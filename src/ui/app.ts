@@ -9,7 +9,7 @@ import { icon, weatherIcon } from './icons';
 import { onRoute, parseHash, navigate, replaceRoute, type Route } from './router';
 import type { Screen } from './screen';
 import { safe, calSafe, ring, countUp, WEATHER_LABEL, WEATHER_NOTE, WEEKDAYS_LONG, bar, clamp } from './kit';
-import { closePopover, modalOpen, openModal, popover, popoverOpen } from './overlay';
+import { closePopover, modalOpen, openModal, popover, popoverOpen, toast } from './overlay';
 import { prefs } from './prefs';
 import { ui } from './uistate';
 
@@ -175,8 +175,25 @@ function renderMain(first: boolean): void {
   }
 }
 
+// Daily goals finished since the last state change get a toast (the result screen lists them itself).
+let goalsSeen = '';
+function announceGoals(): void {
+  const g = store.state.goals;
+  if (!g) return;
+  const key = (x: { label: string }) => `${g.day}|${x.label}`;
+  const done = g.list.filter((x) => x.done);
+  const seen = new Set(goalsSeen.split('\n'));
+  const fresh = goalsSeen.startsWith(`${g.day}|`) || goalsSeen === `${g.day}|` ? done.filter((x) => !seen.has(key(x))) : [];
+  goalsSeen = [`${g.day}|`, ...done.map(key), g.sweep ? `${g.day}|sweep` : ''].join('\n');
+  if (current?.id === 'result') return;
+  for (const x of fresh) toast(`Goal complete: ${x.label}. +${money(x.reward)}`, 'good');
+  if (g.sweep && !seen.has(`${g.day}|sweep`) && fresh.length) toast('Clean sweep: every goal done today.', 'good');
+  if (fresh.length) try { audio.play('tip'); } catch { /* ignore */ }
+}
+
 function onStateChanged(): void {
   if (!store.loaded) return;
+  announceGoals();
   if (!current || current.bare) return;
   renderChrome();
   if (current.mount) { try { current.refresh?.(); } catch (e) { console.error(e); } return; }
