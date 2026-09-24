@@ -186,4 +186,65 @@ describe('scoring', () => {
     expect(q.q).toBeGreaterThan(40);
     expect(q.q).toBeLessThanOrEqual(85);
   });
+
+  describe('coverage after a deck change', () => {
+    const heights = [2.5, 3, 3.5, 4];
+    /** Mow the whole lot in lanes along z; lanes left of splitX at 3 in, the rest at 4 in. */
+    function mowSplit(f: GrassField, splitX: number) {
+      let frame = 1;
+      const zA = f.z0, zB = f.z0 + f.nz * f.cs;
+      for (let x = 0.4; x < f.layout.lot.w; x += 1.0) {
+        const hi = x > splitX;
+        frame = drive(f, deck(f, { deckIn: hi ? 4 : 3, deckIndex: hi ? 3 : 1 }), x, zA, x, zB, frame);
+      }
+      // trim every edge cell the deck did not reach, at the deck in use for that side
+      const out = { cells: 0, cut: 0, removed: 0, tallest: 0 };
+      for (let k = 0; k < f.n; k++) {
+        if (!f.edge[k]) continue;
+        const x = f.cx(k % f.nx), z = f.cz(Math.floor(k / f.nx));
+        trim(f, x, z, f.cs * 0.6, x > splitX ? 4 : 3, 1000, 1, out);
+      }
+    }
+    const state = (f: GrassField): ScoreState => ({
+      field: f, deckHeights: heights, deckIndex: 3, deckWidth: 1.2, stripeStrength: 0.3, damages: [],
+      realSeconds: 200, timeScale: 0.2, burnsFuel: true, wearMult: 1, mowerAreaM2: 380,
+    });
+
+    it('grass cut at a raised deck still counts as mowed', () => {
+      const f = field(5);
+      mowSplit(f, f.layout.lot.w * 0.65);
+      const r = computeResult(state(f), true);
+      // most of the lawn was cut at 3 in, the rest at 4 in: all of it is mowed, edges included
+      expect(r.cutHeightIn).toBe(3);
+      expect(r.coverage).toBeGreaterThan(0.97);
+      expect(r.trim).toBeGreaterThan(0.97);
+      // two heights side by side still cost evenness
+      expect(r.evenness).toBeLessThan(0.75);
+    });
+
+    it('grass pushed over by the deck is not mowed until a second pass', () => {
+      const f = field(9);
+      const s = lawnSpot(f);
+      const k = f.idx(s.x, s.z);
+      const st = { ...state(f), deckIndex: 1 };
+      const next = drive(f, deck(f, { deckIn: 3, deckIndex: 1, maxGrassIn: 6 }), s.x, s.z - 1, s.x, s.z + 1);
+      expect(f.h[k]).toBeGreaterThan(3.5);
+      expect(f.h[k]).toBeGreaterThan(f.limitAt(k, 3));
+      drive(f, deck(f, { deckIn: 3, deckIndex: 1, maxGrassIn: 6 }), s.x, s.z - 1, s.x, s.z + 1, next);
+      expect(f.h[k]).toBeLessThanOrEqual(f.limitAt(k, 3));
+      expect(computeResult(st, true).coverage).toBeGreaterThan(0);
+    });
+
+    it('a mower pass over grass already under the deck counts at that deck', () => {
+      const f = field(5);
+      const s = lawnSpot(f);
+      const k = f.idx(s.x, s.z);
+      f.h[k] = 3.8;
+      expect(f.cutAt[k]).toBe(0);
+      drive(f, deck(f, { deckIn: 4, deckIndex: 3 }), s.x, s.z - 1, s.x, s.z + 1);
+      expect(f.h[k]).toBeCloseTo(3.8, 5);
+      expect(f.cutAt[k]).toBe(4);
+      expect(f.h[k]).toBeLessThanOrEqual(f.limitAt(k, 3));
+    });
+  });
 });

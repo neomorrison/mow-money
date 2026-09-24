@@ -40,10 +40,9 @@ export class Minimap {
     this.fit = { s, ox: (this.cssW - this.f.nx * s) / 2, oy: (this.cssH - this.f.nz * s) / 2 };
   }
 
-  /** Rebuild the base image from the field (a few times per second). */
-  redraw(deckIn: number, flash: boolean, dirtHi = false) {
+  /** Rebuild the base image from the field (a few times per second). `refIn`: the deck used for most of the lawn. */
+  redraw(refIn: number, flash: boolean, dirtHi = false) {
     const f = this.f, d = this.img.data;
-    const lim = deckIn + 0.5;
     const nx = f.nx, nz = f.nz;
     for (let j = 0; j < nz; j++) {
       const row = nz - 1 - j;                 // back of the lot at the top
@@ -54,6 +53,7 @@ export class Minimap {
         switch (f.surf[k]) {
           case LAWN: {
             const h = f.h[k];
+            const lim = f.limitAt(k, refIn);     // same rule as the coverage score
             if (h <= lim && f.cutBy[k]) {
               const hd = f.heading[k];
               const band = hd === hd && f.cutBy[k] === 1 ? (Math.cos(hd) > 0 ? 1 : 0) : 0.5;

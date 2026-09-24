@@ -59,7 +59,7 @@ export class GrassField {
   debris: Float32Array;      // clippings on non-lawn cells
   leaves: Float32Array;
   edge: Uint8Array;
-  deckIdx: Uint8Array;       // deck setting index the cell was last cut at (255 none)
+  cutAt: Float32Array;       // deck height (in) the cell was last cut or mowed over at, 0 if never
   lean: Float32Array;        // visible stripe strength stored with the heading (0..1)
   asphalt: Uint8Array;       // hard cells that are parking lot asphalt rather than concrete
 
@@ -101,7 +101,7 @@ export class GrassField {
     this.debris = new Float32Array(n);
     this.leaves = new Float32Array(n);
     this.edge = new Uint8Array(n);
-    this.deckIdx = new Uint8Array(n).fill(255);
+    this.cutAt = new Float32Array(n);
     this.lean = new Float32Array(n);
     this.asphalt = new Uint8Array(n);
     this.dataA = new Uint8Array(n * 4);
@@ -306,7 +306,16 @@ export class GrassField {
     d[o] = Math.min(255, this.clump[k] * 255) | 0;
     d[o + 1] = Math.min(255, this.debris[k] * 255) | 0;
     d[o + 2] = Math.min(255, this.leaves[k] * 255) | 0;
-    d[o + 3] = this.edge[k] ? 255 : 0;
+    // done: cut (or mowed over) and within half an inch of that deck, so the missed-spot flash skips it
+    d[o + 3] = this.cutAt[k] > 0 && this.h[k] <= this.cutAt[k] + 0.5 ? 255 : 0;
+  }
+  /**
+   * Height a lawn cell must be at or under to count as mowed: half an inch over the deck it was cut at, or
+   * over `ref` (the deck used for most of the lawn) if the mower never reached it.
+   */
+  limitAt(k: number, ref: number): number {
+    const c = this.cutAt[k];
+    return (c > 0 ? c : ref) + 0.5;
   }
   markA(k: number) {
     this.writeA(k);

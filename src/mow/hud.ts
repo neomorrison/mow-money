@@ -301,7 +301,7 @@ export class Hud {
     const key = show ? '1' : '0';
     if (this.last.prompt === key) return;
     this.last.prompt = key;
-    this.prompt.innerHTML = `${ICON.bag}<span>Empty the bag${this.touch ? '' : ' <kbd style="font:inherit;background:#f3e6c8;border-radius:6px;padding:0 6px">E</kbd>'}</span>`;
+    this.prompt.innerHTML = `${ICON.bag}<span>Empty the bag${this.touch ? '' : ' <kbd style="font:inherit;background:#f3e6c8;border-radius:6px;padding:0 6px">R</kbd>'}</span>`;
     this.prompt.classList.toggle('show', show);
   }
 
@@ -335,7 +335,7 @@ export class Hud {
       <span><kbd>Shift</kbd></span><span>Slow, precise driving</span>
       <span><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span><span>Mower, trimmer, blower</span>
       <span><kbd>Q</kbd> <kbd>E</kbd></span><span>Lower or raise the deck</span>
-      <span><kbd>E</kbd> at your vehicle</span><span>Empty the bag</span>
+      <span><kbd>R</kbd> at your vehicle</span><span>Empty the bag</span>
       <span><kbd>H</kbd></span><span>Flash missed spots</span>
       <span><kbd>V</kbd> and mouse drag</span><span>Camera view and orbit, wheel to zoom</span>
       <span><kbd>F</kbd> <kbd>Esc</kbd></span><span>Finish, pause</span></div>`;

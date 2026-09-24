@@ -126,15 +126,18 @@ export function stripePattern(f: GrassField, deckWidth: number): { score: number
 export function computeResult(s: ScoreState, completed: boolean, withStripe = true): MowJobResult {
   const f = s.field;
   const cutH = mostUsedDeck(f, s.deckHeights, s.deckIndex);
-  const limit = cutH + 0.5;
+  // A cell counts as mowed when it is within half an inch of the deck it was cut (or mowed over) at, so
+  // changing the deck mid-job never un-mows grass that was already cut. Cells the mower never reached are
+  // held to the deck used for most of the lawn. Mixed heights still cost evenness and the height check.
   let lawn = 0, covered = 0, sum = 0, sum2 = 0, edges = 0, edgesCut = 0, clumps = 0, remSum = 0, remN = 0;
   for (let k = 0; k < f.n; k++) {
     if (f.surf[k] !== LAWN) continue;
     lawn++;
     const h = f.h[k];
     sum += h; sum2 += h * h;
-    if (h <= limit) covered++;
-    if (f.edge[k]) { edges++; if (h <= limit) edgesCut++; }
+    const ok = h <= f.limitAt(k, cutH);
+    if (ok) covered++;
+    if (f.edge[k]) { edges++; if (ok) edgesCut++; }
     if (f.clump[k] > 0.15) clumps++;
     if (f.cutOnce[k]) { remSum += 1 - h / f.h0[k]; remN++; }
   }

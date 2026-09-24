@@ -1,9 +1,9 @@
 // Keyboard, mouse, touch (virtual joystick, orbit drag, pinch) and gamepad input for the mowing job.
-export type Action = 'tool1' | 'tool2' | 'tool3' | 'deckDown' | 'deckUp' | 'missed' | 'camera' | 'pause' | 'finish' | 'cycleTool';
+export type Action = 'tool1' | 'tool2' | 'tool3' | 'deckDown' | 'deckUp' | 'emptyBag' | 'padUp' | 'missed' | 'camera' | 'pause' | 'finish' | 'cycleTool';
 
 const KEY_ACTIONS: Record<string, Action> = {
   Digit1: 'tool1', Digit2: 'tool2', Digit3: 'tool3', Numpad1: 'tool1', Numpad2: 'tool2', Numpad3: 'tool3',
-  KeyQ: 'deckDown', KeyE: 'deckUp', KeyH: 'missed', KeyV: 'camera', Escape: 'pause', KeyP: 'pause', KeyF: 'finish',
+  KeyQ: 'deckDown', KeyE: 'deckUp', KeyR: 'emptyBag', KeyH: 'missed', KeyV: 'camera', Escape: 'pause', KeyP: 'pause', KeyF: 'finish',
 };
 
 export interface JoystickView { show(x: number, y: number): void; move(dx: number, dy: number): void; hide(): void }
@@ -146,7 +146,7 @@ export class Input {
       this.stick.active = !!(lx || ly);
     }
     if (rx || ry) { this.orbitDX += rx * 9; this.orbitDY += ry * 6; this.lastOrbitT = this.now(); }
-    const map: [number, Action][] = [[0, 'cycleTool'], [1, 'missed'], [2, 'tool1'], [3, 'camera'], [4, 'deckDown'], [5, 'deckUp'], [9, 'pause'], [8, 'finish']];
+    const map: [number, Action][] = [[0, 'cycleTool'], [1, 'missed'], [2, 'tool1'], [3, 'camera'], [4, 'deckDown'], [5, 'padUp'], [9, 'pause'], [8, 'finish']];
     for (const [i, a] of map) {
       const pressed = !!pad.buttons[i]?.pressed;
       if (pressed && !this.padPrev[i]) this.actions.push(a);
@@ -165,7 +165,6 @@ export class Input {
   /** Positive = turn left. */
   get steer() { return this.axis(['KeyD', 'ArrowRight'], ['KeyA', 'ArrowLeft']); }
   get slow() { return this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'); }
-  get emptyBag() { return false; }
 
   private spare: Action[] = [];
   private orbitOut: [number, number] = [0, 0];
