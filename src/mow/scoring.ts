@@ -7,6 +7,7 @@ export interface ScoreState {
   field: GrassField;
   deckHeights: number[];
   deckIndex: number;          // current setting (used when nothing was cut yet)
+  targetIn?: number;          // client's height: grass the mower never reached is held to it at most
   deckWidth: number;
   stripeStrength: number;     // mower stripe + kit + perk, before clamping
   damages: Damage[];
@@ -23,13 +24,16 @@ export interface ScoreState {
  * deck raised out of the way is scored as a cut at that height.
  */
 export function cellsByDeck(f: GrassField, heights: number[], out = new Float64Array(heights.length)): Float64Array {
-  out.fill(0);
-  for (let k = 0; k < f.n; k++) {
-    const c = f.cutAt[k];
-    if (c <= 0 || f.surf[k] !== LAWN) continue;
-    for (let i = 0; i < heights.length; i++) if (Math.abs(heights[i] - c) < 0.01) { out[i]++; break; }
-  }
+  for (let i = 0; i < heights.length; i++) out[i] = f.cellsAt(heights[i]);
   return out;
+}
+
+/**
+ * Height grass the mower never reached is measured against: the deck used for most of the lawn, but never
+ * above the client's height, so raising the deck and walking away does not count the lawn as mowed.
+ */
+export function unreachedRef(cutH: number, targetIn?: number): number {
+  return targetIn === undefined ? cutH : Math.min(cutH, targetIn);
 }
 
 /** Deck height (inches) the most lawn was cut at, or the current setting before anything was cut. */
@@ -143,14 +147,16 @@ export function computeResult(s: ScoreState, completed: boolean, withStripe = tr
   const cutH = mostUsedDeck(f, s.deckHeights, s.deckIndex);
   // A cell counts as mowed when it is within half an inch of the deck it was cut (or mowed over) at, so
   // changing the deck mid-job never un-mows grass that was already cut. Cells the mower never reached are
-  // held to the deck used for most of the lawn. Mixed heights still cost evenness and the height check.
+  // held to the deck used for most of the lawn (at most the client's height). Mixed heights still cost
+  // evenness and the height check.
+  const ref = unreachedRef(cutH, s.targetIn);
   let lawn = 0, covered = 0, sum = 0, sum2 = 0, edges = 0, edgesCut = 0, clumps = 0, remSum = 0, remN = 0;
   for (let k = 0; k < f.n; k++) {
     if (f.surf[k] !== LAWN) continue;
     lawn++;
     const h = f.h[k];
     sum += h; sum2 += h * h;
-    const ok = h <= f.limitAt(k, cutH);
+    const ok = h <= f.limitAt(k, ref);
     if (ok) covered++;
     if (f.edge[k]) { edges++; if (ok) edgesCut++; }
     if (f.clump[k] > 0.15) clumps++;

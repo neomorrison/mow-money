@@ -247,6 +247,26 @@ describe('scoring', () => {
       expect(estimateQuality(spec, r).penalties.some((p) => p.label === 'Cut too high')).toBe(true);
     });
 
+    it('mowing again at the client height after a raised pass scores the lower height', () => {
+      const f = field(2.4);
+      let frame = 1;
+      for (const d of [3.5, 2.5]) {
+        for (let x = 0.4; x < f.layout.lot.w; x += 1.0) frame = drive(f, deck(f, { deckIn: d }), x, f.z0, x, f.z0 + f.nz * f.cs, frame);
+      }
+      const r = computeResult({ ...state(f), deckIndex: 0, targetIn: 2.5 }, true);
+      expect(r.cutHeightIn).toBe(2.5);
+      expect(r.coverage).toBeGreaterThan(0.97);
+    });
+
+    it('raising the deck and walking away does not count the lawn as mowed', () => {
+      const f = field(4);
+      const lazy = computeResult({ ...state(f), deckIndex: 3, targetIn: 3 }, true);
+      expect(lazy.coverage).toBeLessThan(0.3);
+      // grass that really is short enough still counts
+      const short = computeResult({ ...state(field(2.4)), deckIndex: 3, targetIn: 3 }, true);
+      expect(short.coverage).toBeGreaterThan(0.9);
+    });
+
     it('a mower pass over grass already under the deck counts at that deck', () => {
       const f = field(5);
       const s = lawnSpot(f);

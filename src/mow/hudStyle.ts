@@ -28,7 +28,7 @@ export const HUD_CSS = `
 .mmj-q{padding:10px 12px}
 .mmj-q .row{display:flex;align-items:center;justify-content:space-between;gap:6px}
 .mmj-q .side{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
-.mmj-track{font-size:11px;font-weight:800;color:#5c7a44;white-space:nowrap;min-height:13px}
+.mmj-track{font-size:11px;font-weight:800;color:#5c7a44;white-space:nowrap;min-height:13px;line-height:13px}
 .mmj-q .big{font-family:'Baloo 2','Nunito',system-ui,sans-serif;font-weight:800;font-size:34px;line-height:.9}
 .mmj-q .lbl{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7c917f}
 .mmj-stars{display:flex;gap:1px}
@@ -67,8 +67,9 @@ export const HUD_CSS = `
 .mmj-hint{position:absolute;left:50%;bottom:calc(max(10px,env(safe-area-inset-bottom)) + 4px);transform:translateX(-50%);padding:10px 18px;font-weight:800;font-size:15px;max-width:min(520px,60vw);text-align:center;display:none}
 .mmj-hint.show{display:block;animation:mmjHint .3s ease}
 .mmj-hint small{display:block;font-weight:700;color:#7c917f;font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px}
-.mmj-prompt{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);padding:10px 18px;font-weight:800;display:none;align-items:center;gap:10px}
+.mmj-prompt{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);padding:10px 18px;font-weight:800;display:none;align-items:center;gap:10px;white-space:nowrap}
 .mmj-prompt.show{display:flex}
+.mmj-prompt svg{width:24px;height:24px;flex:none}
 .mmj-toasts{position:absolute;left:50%;top:calc(max(10px,env(safe-area-inset-top)) + 58px);transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none}
 .mmj-toast{padding:7px 14px;border-radius:14px;font-weight:800;font-size:14px;background:rgba(255,250,240,.96);box-shadow:0 4px 14px rgba(28,58,36,.18);animation:mmjIn .25s ease, mmjOut .4s ease 2.4s forwards;white-space:nowrap}
 .mmj-toast.bad{background:#fde4df;color:#a1301f}
@@ -78,6 +79,8 @@ export const HUD_CSS = `
 @keyframes mmjOut{to{opacity:0;transform:translateY(-6px)}}
 @keyframes mmjHint{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
 .mmj-hint.show{transform:translateX(-50%)}
+/* narrower windows: the tip sits above the status card and the button stack instead of between them */
+@media (max-width:1279px){.mmj:not(.compact):not(.touch) .mmj-hint{bottom:calc(max(10px,env(safe-area-inset-bottom)) + 184px);max-width:min(520px,calc(100vw - 424px))}}
 .mmj-joy{position:absolute;width:132px;height:132px;margin:-66px 0 0 -66px;border-radius:50%;background:rgba(255,250,240,.28);border:2px solid rgba(255,255,255,.7);display:none;pointer-events:none}
 .mmj-joy i{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:rgba(255,250,240,.92);box-shadow:0 4px 12px rgba(0,0,0,.2)}
 .mmj-joyhint{position:absolute;left:max(24px,env(safe-area-inset-left));bottom:calc(max(10px,env(safe-area-inset-bottom)) + 150px);width:110px;height:110px;border-radius:50%;border:2px dashed rgba(255,255,255,.75);display:none;place-items:center;color:#fff;font-weight:800;font-size:12px;text-align:center;text-shadow:0 1px 3px rgba(0,0,0,.4);pointer-events:none}
@@ -115,6 +118,7 @@ export const HUD_CSS = `
 .mmj.compact .mmj-clock{top:calc(max(10px,env(safe-area-inset-top)) + 52px);left:max(12px,env(safe-area-inset-left));transform:none;padding:4px 10px 4px 6px}
 .mmj.compact .mmj-clock .t{font-size:17px}
 .mmj.compact .mmj-clock svg{width:20px;height:20px}
+.mmj.compact .mmj-clock .w{font-size:11px;line-height:1.1}
 .mmj.compact .mmj-right{width:128px;gap:6px}
 .mmj.compact .mmj-q{padding:8px 10px}
 .mmj.compact .mmj-q .row{flex-wrap:wrap;row-gap:2px}
@@ -130,6 +134,8 @@ export const HUD_CSS = `
 .mmj.compact .mmj-toasts{top:calc(max(10px,env(safe-area-inset-top)) + 96px)}
 .mmj.compact .mmj-toast{font-size:12px;white-space:normal;max-width:70vw;text-align:center}
 .mmj.compact .mmj-hint{max-width:92vw;width:max-content;font-size:13px;bottom:calc(max(10px,env(safe-area-inset-bottom)) + 190px)}
+/* short, wide windows: keep the tip between the status card and the minimap column */
+@media (min-width:700px){.mmj.compact .mmj-hint{max-width:calc(100vw - 340px)}}
 .mmj.compact .mmj-joyhint{bottom:calc(max(10px,env(safe-area-inset-bottom)) + 30px);width:96px;height:96px}
 .mmj.compact .mmj-facts{grid-template-columns:repeat(2,1fr)}
 .mmj.compact .mmj-sheet{padding:18px}

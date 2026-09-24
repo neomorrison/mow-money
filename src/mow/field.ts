@@ -36,6 +36,8 @@ export interface FieldOptions {
   seed: number;
 }
 
+const bucket = (deckIn: number) => Math.max(0, Math.min(63, Math.round(deckIn * 4)));
+
 export class GrassField {
   readonly layout: PropertyLayout;
   readonly cs: number;
@@ -316,6 +318,18 @@ export class GrassField {
     const c = this.cutAt[k];
     return (c > 0 ? c : ref) + 0.5;
   }
+  /** Lawn cells per recorded deck height, in quarter-inch buckets; kept in step by setCutAt. */
+  private cutAtCells = new Float64Array(64);
+  /** Record the deck height a lawn cell was cut or mowed over at. */
+  setCutAt(k: number, deckIn: number) {
+    const old = this.cutAt[k];
+    if (old === deckIn) return;
+    if (old > 0) this.cutAtCells[bucket(old)]--;
+    this.cutAt[k] = deckIn;
+    if (deckIn > 0) this.cutAtCells[bucket(deckIn)]++;
+  }
+  /** Lawn cells whose record is this deck height. */
+  cellsAt(deckIn: number): number { return this.cutAtCells[bucket(deckIn)]; }
   markA(k: number) {
     this.writeA(k);
     const j = (k / this.nx) | 0, i = k - j * this.nx;

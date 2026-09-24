@@ -40,7 +40,7 @@ export class Minimap {
     this.fit = { s, ox: (this.cssW - this.f.nx * s) / 2, oy: (this.cssH - this.f.nz * s) / 2 };
   }
 
-  /** Rebuild the base image from the field (a few times per second). `refIn`: the deck used for most of the lawn. */
+  /** Rebuild the base image from the field (a few times per second). `refIn`: the height unreached grass is held to. */
   redraw(refIn: number, flash: boolean, dirtHi = false) {
     const f = this.f, d = this.img.data;
     const nx = f.nx, nz = f.nz;

@@ -12,7 +12,7 @@ import { ModelKit } from './models';
 import { World } from './world';
 import { Body, buildColliders, resolve, type Colliders, type DriveInput, type VehicleParams, wrapAngle } from './mower';
 import { cutDeck, makeDeckOutcome, trim, blow, type DeckParams, type TrimOutcome, type BlowOutcome } from './cutting';
-import { cellsByDeck, computeResult, estimateQuality, liveResult, mostUsedDeck, projectedResult, type ScoreState } from './scoring';
+import { cellsByDeck, computeResult, estimateQuality, liveResult, mostUsedDeck, projectedResult, unreachedRef, type ScoreState } from './scoring';
 import { Hud } from './hud';
 import { Input, type Action } from './input';
 import { CameraRig } from './camera';
@@ -375,8 +375,8 @@ export class MowJob {
 
   private toggleCamera() { this.rig.toggle(); }
   private flashMissed() { this.flashT = 2; this.flashed = true; this.miniT = 0; this.u.uDeck.value = this.refDeck(); }
-  /** Deck used for most of the lawn so far: uncut grass is measured against it (see scoring.ts). */
-  private refDeck(): number { return mostUsedDeck(this.field, this.deckHeights, this.deckIdx); }
+  /** Height grass the mower never reached is measured against (see computeResult in scoring.ts). */
+  private refDeck(): number { return unreachedRef(mostUsedDeck(this.field, this.deckHeights, this.deckIdx), this.spec.targetIn); }
 
   private requestFinish() {
     if (!this.started || this.ended) return;
@@ -995,7 +995,7 @@ export class MowJob {
   /** Current measurements and the quality preview (`live`: projected score that grows as you mow). */
   measure(completed: boolean, live = false): MowJobResult {
     const s: ScoreState = {
-      field: this.field, deckHeights: this.deckHeights, deckIndex: this.deckIdx, deckWidth: this.spec.mower.deckWidth ?? 1,
+      field: this.field, deckHeights: this.deckHeights, deckIndex: this.deckIdx, targetIn: this.spec.targetIn, deckWidth: this.spec.mower.deckWidth ?? 1,
       stripeStrength: this.stripeStrength, damages: this.damages, realSeconds: this.active, timeScale: this.spec.timeScale,
       burnsFuel: (this.spec.mower.fuelGalPerHr ?? 0) > 0, wearMult: this.spec.mower.wearMult ?? 1, mowerAreaM2: this.mowerArea,
     };
@@ -1068,8 +1068,8 @@ export class MowJob {
     const f = this.field, d = this.deckHeights[this.deckIdx];
     for (let k = 0; k < f.n; k++) {
       if (!f.edge[k]) continue;
-      if (f.h[k] > d) { f.h[k] = d; if (!f.cutOnce[k]) { f.cutOnce[k] = 1; f.uniqueCutCells++; } if (f.cutBy[k] !== 1) f.cutBy[k] = 2; f.cutAt[k] = d; f.markA(k); f.markC(k); }
-      else if (f.cutAt[k] === 0) { f.cutAt[k] = d; f.markC(k); }
+      if (f.h[k] > d) { f.h[k] = d; if (!f.cutOnce[k]) { f.cutOnce[k] = 1; f.uniqueCutCells++; } if (f.cutBy[k] !== 1) f.cutBy[k] = 2; f.setCutAt(k, d); f.markA(k); f.markC(k); }
+      else if (f.cutAt[k] === 0 || d < f.cutAt[k]) { f.setCutAt(k, d); f.markC(k); }
     }
   }
   debugState() {

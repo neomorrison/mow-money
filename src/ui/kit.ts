@@ -178,7 +178,7 @@ export const WEATHER_NOTE: Record<WeatherKind, string> = {
   sunny: 'Perfect mowing weather.',
   cloudy: 'Mild. Grass grows a little faster.',
   rain: 'Wet grass: clumps and slower mowing.',
-  storm: 'Crews stay home. No late penalties.',
+  storm: 'Crews stay home. Today does not count as late.',
   heat: 'Slow growth. Three in a row means drought.',
 };
 export const SEASON_LABEL: Record<Season, string> = { spring: 'Spring', summer: 'Summer', fall: 'Fall', winter: 'Winter' };

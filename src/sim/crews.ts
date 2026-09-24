@@ -305,18 +305,22 @@ export function autoDispatch(state: GameState): ActionResult {
   const off = crewDayOff(state);
   const later = off ? ' They start on the next working day.' : ' They mow them when you end the day.';
   const jobs = (n: number) => `${n} ${n === 1 ? 'job' : 'jobs'}`;
-  const elsewhere = noCrew ? ` ${jobs(noCrew)} ${noCrew === 1 ? 'is' : 'are'} in a town none of your crews works in.` : '';
-  if (moved) return { ok: true, message: `${jobs(moved)} handed to your crews.${later}${elsewhere}` };
+  const them = (n: number) => (n === 1 ? 'it' : 'them');
   const withCrews = state.clients.filter((c) => isDue(state, c) && c.assignee !== 'owner').length;
   const leftMine = state.clients.filter((c) => isDue(state, c) && c.assignee === 'owner').length;
+  const noRoom = leftMine - noCrew;
+  // why the jobs still on your list stayed there: a full route, or a town no ready crew is based in
+  const roomNote = noRoom > 0 ? ` ${jobs(noRoom)} did not fit in a crew's day.` : '';
+  const townNote = noCrew > 0 ? ` ${jobs(noCrew)} ${noCrew === 1 ? 'is' : 'are'} in a town none of your ready crews is based in; pick a crew on the job card to send one anyway.` : '';
+  if (moved) return { ok: true, message: `${jobs(moved)} handed to your crews.${later}${leftMine ? ` ${jobs(leftMine)} still yours.${roomNote}${townNote}` : ''}` };
   if (leftMine) {
-    if (noCrew >= leftMine) return { ok: true, message: `None of your ready crews works in the town of your ${jobs(leftMine)} left. Base a crew there, or mow ${leftMine === 1 ? 'it' : 'them'} yourself.` };
-    return { ok: true, message: `No room left in your crews' day for ${jobs(leftMine - noCrew)} of yours.${elsewhere}` };
+    if (noCrew >= leftMine) return { ok: true, message: `Dispatch only sends a crew to its own town, and none of your ready crews is based where your ${jobs(leftMine)} left ${leftMine === 1 ? 'is' : 'are'}. Pick a crew on the job ${leftMine === 1 ? 'card' : 'cards'}, base a crew in that town (a branch town needs an operations manager), or mow ${them(leftMine)} yourself.` };
+    return { ok: true, message: `No room left in your crews' day for ${jobs(noRoom)} of yours.${townNote}` };
   }
-  // jobs the crews hold but cannot fit in today's routes wait (they come back to you once overdue)
+  // jobs the crews hold but cannot fit in one day's route wait (they come back to you once overdue)
   const fits = [...loads.values()].reduce((a, l) => a + l.length, 0);
   const stuck = withCrews - fits;
-  if (stuck > 0) return { ok: true, message: `Your crews hold every due job, but ${jobs(stuck)} ${stuck === 1 ? 'does' : 'do'} not fit in today's routes. Take ${stuck === 1 ? 'it' : 'them'} back on the job ${stuck === 1 ? 'card' : 'cards'}, or ${stuck === 1 ? 'it waits' : 'they wait'} for tomorrow.` };
+  if (stuck > 0) return { ok: true, message: `Your crews hold every due job, but ${jobs(stuck)} ${stuck === 1 ? 'does' : 'do'} not fit in one day's route.${off ? ' Crews do not work today.' : ''} Take ${them(stuck)} back on the job ${stuck === 1 ? 'card' : 'cards'}, or ${stuck === 1 ? 'it waits' : 'they wait'} for the next working day.` };
   if (withCrews) return { ok: true, message: `Your crews already have every due job (${withCrews}).${later}` };
   return { ok: true, message: 'No jobs due right now.' };
 }
