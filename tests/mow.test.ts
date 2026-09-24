@@ -15,7 +15,7 @@ function field(grassIn = 4.5, leaves = 0) {
 function deck(f: GrassField, over: Partial<DeckParams> = {}): DeckParams {
   return {
     x: 0, z: 0, prevX: 0, prevZ: 0, heading: 0, width: 1.2, length: 0.5, deckIn: 3, deckIndex: 2, maxGrassIn: 7,
-    stripeVis: 0.8, bagActive: false, mulching: true, discharge: 0.35, wet: false, frame: 1, time: 0, dt: 1 / 60, ...over,
+    stripeVis: 0.8, bagActive: false, mulching: true, discharge: 0.35, wet: false, autoStripe: false, bandW: 1.2, frame: 1, time: 0, dt: 1 / 60, ...over,
   };
 }
 
@@ -134,6 +134,29 @@ describe('scoring', () => {
     expect(a.alternation).toBeGreaterThan(0.6);
     expect(a.score).toBeGreaterThan(0.7);
     expect(b.score).toBeLessThan(0.4);
+  });
+
+  it('auto stripes lay perfect bands however the mower is driven', () => {
+    const f = field(4.5);
+    const L = f.layout.lot;
+    let fr = 1;
+    // sloppy diagonal passes
+    for (let x = -4; x < L.w + 4; x += 0.9) fr = drive(f, deck(f, { autoStripe: true, bandW: 1.2 }), x, 0.2, x + 4, L.d - 0.4, fr);
+    for (let z = 0.4; z < L.d; z += 0.9) fr = drive(f, deck(f, { autoStripe: true, bandW: 1.2 }), 0.3, z, L.w - 0.3, z, fr);
+    expect(stripePattern(f, 1.2).score).toBeGreaterThan(0.85);
+  });
+
+  it('forgives a slightly wobbly but honest back-and-forth pattern', () => {
+    const f = field(4.5);
+    const L = f.layout.lot;
+    let fr = 1;
+    let dir = 1;
+    for (let x = 0.6; x < L.w - 0.6; x += 1.05) {
+      const wob = dir > 0 ? 0.5 : -0.4;   // passes drift about 2 degrees
+      fr = drive(f, deck(f), x, dir > 0 ? 0.2 : L.d - 0.6, x + wob, dir > 0 ? L.d - 0.6 : 0.2, fr);
+      dir = -dir;
+    }
+    expect(stripePattern(f, 1.2).score).toBeGreaterThan(0.75);
   });
 
   it('builds a complete MowJobResult', () => {

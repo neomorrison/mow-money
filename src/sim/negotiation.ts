@@ -15,6 +15,7 @@
 import type { AddOn, Frequency, PitchContext, PitchOutcome, Tone } from '../core/types';
 import { ARCHETYPE_BY_ID, ARCHETYPES } from '../data/archetypes';
 import { ARCHETYPE_LINES, GENERIC, PLAYER, fill, linesFor, type LineSet, type PointId } from '../data/dialogue';
+import { pickFresh } from '../data/pick';
 import { makeRng, clamp, type Rng } from '../core/rng';
 
 export type PitchAction =
@@ -165,8 +166,7 @@ export function createNegotiation(ctx: PitchContext, seed: number): NegotiationS
   };
   n.R = reservation(n, a.prefersFreq, []);
   const rng = makeRng(n.rngState);
-  const L = linesFor(a.id);
-  n.log.push({ who: 'them', text: say(n, rng.pick(L.greet)) });
+  n.log.push({ who: 'them', text: say(n, pickFresh(rng, themPool(a.id, 'greet'))) });
   n.rngState = rng.state();
   return n;
 }
@@ -254,7 +254,7 @@ export function step(n: NegotiationState, action: PitchAction): StepResult {
   if (n.done) return result(n, [], null, null, false);
   const rng = makeRng(n.rngState);
   const a = archOf(n.ctx);
-  const L = linesFor(a.id);
+  const them1 = (key: ThemKey) => pickFresh(rng, themPool(a.id, key));
   const lines: PitchLine[] = [];
   const you = (t: string, vars: Record<string, string | number> = {}) => lines.push({ who: 'you', text: say(n, t, vars) });
   const them = (t: string, vars: Record<string, string | number> = {}) => lines.push({ who: 'them', text: say(n, t, vars) });
@@ -272,7 +272,7 @@ export function step(n: NegotiationState, action: PitchAction): StepResult {
       const aff = a.tone[action.tone] ?? 0;
       n.trust = clamp(n.trust + 0.12 * aff, 0, 1);
       const key = aff > 0 ? 'liked' : aff < 0 ? 'disliked' : 'neutral';
-      them(rng.pick(L.tone[key]));
+      them(pickFresh(rng, tonePool(a.id, key)));
       effect = aff > 0 ? 'works' : aff < 0 ? 'fails' : 'neutral';
       n.mood = aff > 0 ? 'pleased' : aff < 0 ? 'steep' : 'neutral';
       n.stage = 'points';
@@ -287,7 +287,7 @@ export function step(n: NegotiationState, action: PitchAction): StepResult {
       n.pointsUsed.push(id);
       you(rng.pick(PLAYER.point[id]));
       effect = applyPoint(n, id, a.id);
-      them(rng.pick(pointLines(a.id, id, effect)));
+      them(pickFresh(rng, pointLines(a.id, id, effect)));
       n.mood = effect === 'works' ? 'pleased' : effect === 'fails' ? 'steep' : 'neutral';
       break;
     }
@@ -325,7 +325,7 @@ export function step(n: NegotiationState, action: PitchAction): StepResult {
       }
       if (accepted) {
         const kind = action.type === 'trial' ? 'trial' : 'deal';
-        them(rng.pick(kind === 'trial' ? L.trial : L.accept));
+        them(them1(kind === 'trial' ? 'trial' : 'accept'));
         n.mood = 'accept';
         finish(n, kind, { price: total, freq, addOns, R });
         break;
@@ -338,13 +338,13 @@ export function step(n: NegotiationState, action: PitchAction): StepResult {
         n.trust = clamp(n.trust - 0.15, 0, 1);
         n.patience -= 1;
       }
-      them(rng.pick(L[bucket]));
+      them(them1(bucket));
       if (n.patience <= 0) {
         if (bucket === 'offended') {
-          them(rng.pick(L.slam));
+          them(them1('slam'));
           finish(n, 'rejected', {});
         } else {
-          them(rng.pick(L.think));
+          them(them1('think'));
           finish(n, 'cold', {});
         }
         break;
@@ -354,7 +354,7 @@ export function step(n: NegotiationState, action: PitchAction): StepResult {
       n.counterKey = termsKey(freq, addOns);
       n.R = reservation(n, freq, addOns);
       finalOffer = n.patience <= 1;
-      them(rng.pick(finalOffer ? L.finalCounter : L.counter), { price: dollars(counter) });
+      them(them1(finalOffer ? 'finalCounter' : 'counter'), { price: dollars(counter) });
       break;
     }
     // ---------------------------------------------------------- accept their counter
@@ -363,7 +363,7 @@ export function step(n: NegotiationState, action: PitchAction): StepResult {
       n.exchanges++;
       const price = n.lastCounter;
       you(rng.pick(PLAYER.acceptCounter), { price: dollars(price) });
-      them(rng.pick(L.accept));
+      them(them1('accept'));
       n.mood = 'accept';
       finish(n, 'deal', { price, freq: n.lastTerms.freq, addOns: n.lastTerms.addOns, R: reservation(n, n.lastTerms.freq, n.lastTerms.addOns) });
       break;
@@ -372,7 +372,7 @@ export function step(n: NegotiationState, action: PitchAction): StepResult {
     case 'leave': {
       n.exchanges++;
       you(rng.pick(PLAYER.walkAway));
-      them(rng.pick(L.walkAway));
+      them(them1('walkAway'));
       finish(n, 'left', {});
       break;
     }
@@ -416,16 +416,34 @@ function applyPoint(n: NegotiationState, id: PointId, archId: string): 'works' |
   }
 }
 
+type ThemKey = Exclude<keyof LineSet, 'tone' | 'point'>;
+
+/** Character lines weigh double; the generic pool adds variety so nobody repeats themselves every visit. */
+function merged(own: readonly string[] | undefined, gen: readonly string[] | undefined): string[] {
+  const o = own ?? [];
+  const g = gen ?? [];
+  return o.length ? [...o, ...o, ...g] : [...g];
+}
+
+function themPool(archId: string, key: ThemKey): string[] {
+  const out = merged(ARCHETYPE_LINES[archId]?.[key] as string[] | undefined, GENERIC[key] as string[]);
+  return out.length ? out : ['...'];
+}
+
+function tonePool(archId: string, key: 'liked' | 'neutral' | 'disliked'): string[] {
+  return merged(ARCHETYPE_LINES[archId]?.tone?.[key], GENERIC.tone[key]);
+}
+
 function pointLines(archId: string, id: PointId, effect: 'works' | 'fails' | 'neutral'): string[] {
   const own = ARCHETYPE_LINES[archId]?.point?.[id];
   const gen = GENERIC.point[id];
-  const meh = ARCHETYPE_LINES[archId]?.pointMeh ?? GENERIC.pointMeh;
+  const meh = merged(ARCHETYPE_LINES[archId]?.pointMeh, GENERIC.pointMeh);
   if (effect === 'neutral') {
     // Eco talk that doesn't move a non-eco person reads as a shrug, as does a so-so lawn.
-    return own?.fails && id === 'eco' ? own.fails : meh;
+    return own?.fails?.length && id === 'eco' ? merged(own.fails, gen?.fails) : meh;
   }
-  const pick = effect === 'works' ? (own?.works ?? gen?.works) : (own?.fails ?? gen?.fails);
-  return pick && pick.length ? pick : meh;
+  const pool = effect === 'works' ? merged(own?.works, gen?.works) : merged(own?.fails, gen?.fails);
+  return pool.length ? pool : meh;
 }
 
 function finish(n: NegotiationState, kind: PitchOutcome['result'], deal: { price?: number; freq?: Frequency; addOns?: AddOn[]; R?: number }): void {

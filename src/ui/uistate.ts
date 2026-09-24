@@ -1,5 +1,5 @@
 // UI-only state that survives re-renders (tabs, filters, pending result and report data).
-import type { DayReport, JobOutcome, MowJobSpec } from '../core/types';
+import type { DayReport, JobOutcome, MowJobSpec, SmallTalkResult } from '../core/types';
 import type { Route } from './router';
 
 export interface ResultData {
@@ -13,6 +13,7 @@ export interface ResultData {
   levelBefore: number;
   levelAfter: number;
   shown?: boolean;
+  talk?: SmallTalkResult;    // post-job small talk, once per job
 }
 
 export const ui = {

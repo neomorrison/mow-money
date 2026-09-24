@@ -67,6 +67,8 @@ export function settingsBody(inGame: boolean): Raw {
     <section class="ui-card ui-card--flat">
       <div class="ui-card__head"><span class="ui-card__title">${raw(icon('sparkle'))}Gameplay</span></div>
       ${toggle('showHints', s.showHints, 'Hints', 'Tutorial steps and tips.')}
+      ${toggle('laneAssist', s.laneAssist, 'Lane assist', 'Steering settles into straight lines along the lawn.')}
+      ${toggle('laneGuides', s.laneGuides, 'Lane guides', 'Faint lines on uncut grass show the next pass.')}
       ${toggle('reducedMotion', s.reducedMotion, 'Reduced motion', 'Fewer animations in menus.')}
     </section>
     <section class="ui-card ui-card--flat">

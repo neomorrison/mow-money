@@ -2,7 +2,7 @@
 // blade is fixed in world space while the window follows the mower; heights come from the field texture
 // in the vertex shader, so a cut shows on the very next frame. One draw call.
 import * as THREE from 'three';
-import { NOISE_GLSL, LAWN_GLSL, type GrassUniforms } from './shaders';
+import { NOISE_GLSL, LAWN_GLSL, GUIDE_GLSL, type GrassUniforms } from './shaders';
 
 export const BLADE_COUNTS = { low: 20000, medium: 60000, high: 120000 } as const;
 
@@ -66,10 +66,12 @@ export class Blades {
           uniform vec2 uOrigin; uniform vec2 uSize; uniform float uTime; uniform vec2 uCenter; uniform float uHalf; uniform float uWidth;
           uniform float uStripeGain; uniform float uDull;
           uniform vec3 uCutA; uniform vec3 uCutB; uniform vec3 uLongA; uniform vec3 uLongB; uniform vec3 uTip;
+          uniform vec4 uGuide; uniform float uGuideOn;
           attribute vec2 aOffset; attribute vec4 aRand;
           varying float vT; varying vec2 vLean; varying float vCut; varying float vH; varying vec3 vMmWorld; varying float vRand; varying vec2 vDebris; varying vec3 vLawn; varying float vLeaf;
           ${NOISE_GLSL}
-          ${LAWN_GLSL}`)
+          ${LAWN_GLSL}
+          ${GUIDE_GLSL}`)
         .replace('#include <beginnormal_vertex>', /* glsl */`
           vec2 rel = mod(aOffset - uCenter + uHalf, 2.0 * uHalf) - uHalf;
           vec2 bp = uCenter + rel;
@@ -96,7 +98,7 @@ export class Blades {
           float t = position.y;
           vT = t; vLean = lean; vCut = cut; vH = hIn; vRand = aRand.w; vDebris = C.rb;
           // per-blade lawn color (same function as the ground), evaluated once per vertex
-          vLawn = mmLawn(bp, hIn, lean, cut, vec3(bp.x, 0.0, bp.y) - cameraPosition);
+          vLawn = mmGuide(mmLawn(bp, hIn, lean, cut, vec3(bp.x, 0.0, bp.y) - cameraPosition), bp, cut);
           // some instances become fallen leaves resting on top of the grass while leaves are down
           vLeaf = step(aRand.w, C.b * 0.5) * step(0.02, C.b);
           vec3 objectNormal = vLeaf > 0.5 ? vec3(0.0, 1.0, 0.0) : normalize(vec3(bend.x * 0.6, 1.0, bend.y * 0.6));

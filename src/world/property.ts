@@ -408,20 +408,20 @@ function residential(b: Builder, estate: boolean, practice: boolean, houseMult: 
     return door;
   }
 
-  // trees: the more lot, the more trees
-  const nTrees = estate ? clamp(Math.round(A / 420) + r.int(-1, 2), 4, 12) : clamp(Math.round(A / 230) + r.int(-1, 1), 1, 6);
+  // trees: the more lot, the more trees (kept sparse so the lawn stays open and fun to mow)
+  const nTrees = estate ? clamp(Math.round(A / 700) + r.int(-1, 1), 3, 7) : clamp(Math.round(A / 380) + r.int(-1, 0), 1, 3);
   const trees = estate ? TREES_EST : TREES_RES;
   let placed = 0;
   // at least one in the front yard if there is room
-  if (front > 6 && b.tree(1, W - 1, 1.5, front - 1, trees, 0.5)) placed++;
+  if (front > 6 && b.tree(1, W - 1, 1.5, front - 1, trees, 0.3)) placed++;
   for (let i = 0; placed < nTrees && i < nTrees * 3; i++) {
-    const inFront = r.chance(0.35) && front > 6;
-    const ok = inFront ? b.tree(1, W - 1, 1.5, front - 1, trees, 0.45) : b.tree(1, W - 1, back + 1.5, D - 0.8, trees, 0.3);
+    const inFront = r.chance(0.3) && front > 6;
+    const ok = inFront ? b.tree(1, W - 1, 1.5, front - 1, trees, 0.25) : b.tree(1, W - 1, back + 1.5, D - 0.8, trees, 0.2);
     if (ok) placed++;
   }
 
   // corner and feature beds
-  const extraBeds = estate ? r.int(2, 4) : r.int(0, 2);
+  const extraBeds = estate ? r.int(1, 2) : r.chance(0.35) ? 1 : 0;
   for (let i = 0; i < extraBeds; i++) {
     const back = r.chance(0.6) && backDepth > 7;
     const rx = r.range(1.2, estate ? 3.2 : 2.2), rz = r.range(1.0, estate ? 2.4 : 1.6);
@@ -437,7 +437,7 @@ function residential(b: Builder, estate: boolean, practice: boolean, houseMult: 
     // lamp posts along the driveway and a birdbath "fountain" in its own ring bed out front
     const drive = b.driveway[b.driveway.length - 1];
     const side = drive.x + (-gs) * (drive.w / 2 + 0.7);
-    for (let z = 3; z < drive.d - 1; z += 8) {
+    for (let z = 3; z < drive.d - 1; z += 12) {
       if (b.clear(side, z, 0.2, { hard: 0.3, house: 1, obs: 0.6, beds: 0.2 })) b.add('lamppost', side, z, { rot: 0 });
     }
     const fx = (houseL + houseR) / 2 - gs * hw * 0.1, fz = front * 0.5;
@@ -448,8 +448,8 @@ function residential(b: Builder, estate: boolean, practice: boolean, houseMult: 
     }
   }
 
-  // yard hazards: gnomes near beds, sprinklers across the lawn, balls in back
-  const nGnomes = r.int(0, estate ? 2 : 3) - (r.chance(0.35) ? 1 : 0);
+  // yard hazards: an occasional gnome by a bed, a sprinkler head, a ball in back. A few, not a minefield.
+  const nGnomes = r.chance(estate ? 0.3 : 0.35) ? 1 : 0;
   for (let i = 0; i < nGnomes; i++) {
     const bed = b.beds.length ? r.pick(b.beds) : null;
     let p: { x: number; z: number } | null = null;
@@ -464,14 +464,14 @@ function residential(b: Builder, estate: boolean, practice: boolean, houseMult: 
     if (!p) p = b.spot(1, W - 1, 1, D - 1, 0.2, { house: 0.8, hard: 0.4, beds: 0.2, obs: 0.6 });
     if (p) b.add('gnome', p.x, p.z, { rot: r.range(-0.6, 0.6) + Math.PI });
   }
-  const nSprink = r.int(0, estate ? 6 : 4);
+  const nSprink = estate ? r.int(0, 2) : r.chance(0.3) ? 1 : 0;
   for (let i = 0; i < nSprink; i++) {
     const p = b.spot(1, W - 1, 1, D - 1, 0.1, { house: 0.7, hard: 0.5, beds: 0.4, obs: 0.8 });
     if (p) b.add('sprinkler', p.x, p.z);
   }
-  const family = r.chance(0.5);
+  const family = r.chance(0.35);
   if (family && backDepth > 6) {
-    const nBalls = r.int(1, 3);
+    const nBalls = r.int(0, 1);
     for (let i = 0; i < nBalls; i++) {
       const p = b.spot(1, W - 1, back + 1, D - 1, 0.16, { house: 0.6, hard: 0.4, beds: 0.3, obs: 0.6 });
       if (p) b.add('ball', p.x, p.z);
@@ -481,15 +481,15 @@ function residential(b: Builder, estate: boolean, practice: boolean, houseMult: 
     const p = b.spot(1, W - 1, back + 1, D - 1, rad, { house: 2.2, hard: 1.2, beds: 1.2, obs: 1.2, edge: 1.4 });
     if (p) b.add(toy, p.x, p.z, { rot: r.chance(0.5) ? 0 : Math.PI / 2 });
   }
-  if (r.chance(0.3)) {
+  if (r.chance(0.15)) {
     const p = b.spot(1, W - 1, 1, D - 1, 0.35, { house: 1.5, hard: 1, beds: 0.8, obs: 1.2 });
     if (p) b.add('birdbath', p.x, p.z);
   }
-  if (r.chance(0.25) && backDepth > 5) {
+  if (r.chance(0.12) && backDepth > 5) {
     const p = b.spot(1, W - 1, back + 0.8, D - 0.8, 0.7, { house: 1.2, hard: 0.8, beds: 0.8, obs: 1.2, edge: 0.8 });
     if (p) b.add('doghouse', p.x, p.z, { rot: r.range(-0.5, 0.5) + Math.PI });
   }
-  if (r.chance(0.6)) {
+  if (r.chance(0.25)) {
     // hose reel against the house side wall
     const side = r.chance(0.5) ? -1 : 1;
     const x = side < 0 ? houseL - 0.55 : houseR + 0.55;
@@ -503,7 +503,7 @@ function residential(b: Builder, estate: boolean, practice: boolean, houseMult: 
   }
 
   // back fence with side runs and a gate gap
-  if (r.chance(estate ? 0.6 : 0.45) && backDepth > 6) {
+  if (r.chance(estate ? 0.45 : 0.3) && backDepth > 6) {
     const kind = estate ? r.pick(['iron', 'hedge', 'iron'] as const) : r.pick(['picket', 'picket', 'iron', 'hedge'] as const);
     const e = 0.25;
     const zMid = hz;
@@ -607,7 +607,7 @@ function commercial(b: Builder, houseMult: number) {
       : b.tree(2, W - 2, 3, sb - 3, TREES_EST, 0.5);
     if (ok) placed++;
   }
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 1; i++) {
     const p = b.spot(2, W - 2, 2, D - 2, 0.1, { house: 1, hard: 0.5, beds: 0.4, obs: 1 });
     if (p) b.add('sprinkler', p.x, p.z);
   }
@@ -669,7 +669,7 @@ function park(b: Builder) {
     if (ok) placed++;
   }
   b.add('flagpole', plx + (plW / 2 + 2) * -side, 3, { rot: 0 });
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 2; i++) {
     const p = b.spot(3, W - 3, 3, D - 3, 0.1, { house: 1, hard: 0.6, beds: 0.4, obs: 1 });
     if (p) b.add('sprinkler', p.x, p.z);
   }

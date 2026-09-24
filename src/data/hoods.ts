@@ -43,9 +43,9 @@ export const HOOD_BY_ID: Record<string, HoodSpec> = Object.fromEntries(HOODS.map
 
 export const TOWNS: TownSpec[] = [
   { id: 'home', name: 'Maplewood', branchCost: 0, seedSalt: 1, blurb: 'Where it all started.' },
-  { id: 'riverside', name: 'Riverside', branchCost: 60000, seedSalt: 2, blurb: 'Across the river, same tall grass.' },
-  { id: 'cedar', name: 'Cedar Falls', branchCost: 150000, seedSalt: 3, blurb: 'Fast-growing suburb with money to spend.' },
-  { id: 'summit', name: 'Summit Ridge', branchCost: 400000, seedSalt: 4, blurb: 'Hilltop estates and the county club circuit.' },
+  { id: 'riverside', name: 'Riverside', branchCost: 120000, seedSalt: 2, blurb: 'Across the river, same tall grass.' },
+  { id: 'cedar', name: 'Cedar Falls', branchCost: 300000, seedSalt: 3, blurb: 'Fast-growing suburb with money to spend.' },
+  { id: 'summit', name: 'Summit Ridge', branchCost: 750000, seedSalt: 4, blurb: 'Hilltop estates and the county club circuit.' },
 ];
 
 export const TOWN_BY_ID: Record<string, TownSpec> = Object.fromEntries(TOWNS.map((t) => [t.id, t]));

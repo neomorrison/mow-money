@@ -2,8 +2,10 @@
 import type { ActionResult, Client, GameState, Id, KnockResult, PitchContext, PitchOutcome } from '../core/types';
 import { clamp } from '../core/rng';
 import { ARCHETYPE_BY_ID } from '../data/archetypes';
+import { COLD_LINES, NOT_INTERESTED_DIY, NOT_INTERESTED_RIVAL, fill } from '../data/dialogue';
+import { pickFresh } from '../data/pick';
 import { HOOD_BY_ID } from '../data/hoods';
-import { DAY_END, EVENING_START, KNOCK_EARLY, KNOCK_OPEN, XP_DEAL } from './constants';
+import { DAY_END, EVENING_START, KNOCK_EARLY, KNOCK_MORNING, KNOCK_OPEN, XP_DEAL } from './constants';
 import { calendar } from './calendar';
 import { hasLegacy, hasPerk, logDay, newId, r1, r2, withRng } from './util';
 import { reputation } from './reputation';
@@ -30,7 +32,9 @@ export function answerChance(state: GameState, houseId: Id, minute: number): num
   if (cal.weekday >= 5) p = Math.min(0.95, p * 1.3);
   if (hasPerk(state, 'door_pro')) p = Math.min(0.97, p * 1.1);
   if (isLead(state, state.houses[houseId])) p = Math.max(p, 0.85);
-  if (minute < KNOCK_EARLY) p *= 0.5;
+  // Early birds: fewer people come to the door before 08:30, a few more by 09:00.
+  if (minute < KNOCK_EARLY) p *= 0.6;
+  else if (minute < KNOCK_MORNING) p *= 0.85;
   return clamp(p, 0, 0.97);
 }
 
@@ -94,7 +98,7 @@ export function knock(state: GameState, houseId: Id): KnockResult {
   const arrive = o.minute + travel;
   const km = knockMinutes(state);
   const neighbor = houseId === TUTORIAL_HOUSE && (Number(state.flags.tutorial) || 0) === 1;
-  if (arrive < KNOCK_OPEN && !neighbor) return fail('Too early. Doors open at 8:00 AM.');
+  if (arrive < KNOCK_OPEN && !neighbor) return fail('Too early. Doors open at 7:30 AM.');
   if (arrive + km > DAY_END) return fail(o.minute >= DAY_END - km ? 'Too late to knock.' : 'Not enough daylight.');
   o.minute = arrive + km;
   o.location = key;
@@ -112,11 +116,15 @@ export function knock(state: GameState, houseId: Id): KnockResult {
   // Not everyone wants a mowing service. Tall lawns are the best prospects.
   if (!neighbor) {
     const pNo = notInterestedChance(state, houseId);
-    if (withRng(state, (rng) => rng.chance(pNo))) {
-      s.coldUntil = Math.max(s.coldUntil ?? 0, state.day + 3);
+    const no = withRng(state, (rng) => {
+      if (!rng.chance(pNo)) return null;
       const rival = rivalFor(state, info);
-      const message = rival ? `${info.ownerName} is happy with ${rival.name}.` : `${info.ownerName} is not interested. They mow it themselves.`;
-      return { ok: true, answered: false, minutes, message, context: null };
+      const line = rival ? fill(pickFresh(rng, NOT_INTERESTED_RIVAL), { rival: rival.name }) : pickFresh(rng, NOT_INTERESTED_DIY);
+      return `${info.ownerName}: "${line}"`;
+    });
+    if (no) {
+      s.coldUntil = Math.max(s.coldUntil ?? 0, state.day + 3);
+      return { ok: true, answered: false, minutes, message: no, context: null };
     }
   }
   return { ok: true, answered: true, minutes, message: `${info.ownerName} opened the door.`, context: pitchContext(state, houseId) };
@@ -148,7 +156,7 @@ export function applyPitchOutcome(state: GameState, houseId: Id, outcome: PitchO
     const R = r2(comparableR(price, Rraw, mult));
     const c: Client = {
       id: newId(state, 'c'), houseId, since: state.day, price, freq, addOns, R,
-      satisfaction: r1(clamp(60 + 20 * T, 0, 100)), expectation: info.E,
+      satisfaction: r1(clamp(60 + 20 * T, 0, 100)), expectation: info.E, rapport: r2(clamp(0.15 + 0.45 * T, 0.1, 0.7)),
       wantsStripes: info.wantsStripes || addOns.includes('stripes'),
       lastServiceDay: -1, nextDueDay: state.day, lastQ: -1, bestManualQ: -1, visits: 0, totalPaid: 0, tips: 0, damages: 0,
       assignee: 'owner', trial: outcome.result === 'trial', status: 'active', history: [],
@@ -171,7 +179,7 @@ export function applyPitchOutcome(state: GameState, houseId: Id, outcome: PitchO
   }
   if (outcome.result === 'cold') {
     s.coldUntil = state.day + 5;
-    return { ok: true, message: 'They will think about it.', client: null };
+    return { ok: true, message: withRng(state, (rng) => pickFresh(rng, COLD_LINES)), client: null };
   }
   // Rejected or walked away: no second pitch today.
   s.coldUntil = Math.max(s.coldUntil ?? 0, state.day + 1);

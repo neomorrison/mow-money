@@ -107,6 +107,68 @@ describe('scripted day one', () => {
   });
 });
 
+describe('morning, tips and small talk', () => {
+  it('doors can be knocked from the start of the day', () => {
+    const s = sim.newGame({ companyName: 'Early', color: '#3a3', seed: 11 });
+    expect(s.owner.minute).toBe(sim.DAY_START);
+    const h = sim.housesInHood(s, 'home.maple').find((x) => x.info.id !== sim.TUTORIAL_HOUSE && x.canKnock)!;
+    const r = sim.knock(s, h.info.id);
+    expect(r.ok).toBe(true);
+    expect(r.message).not.toMatch(/Too early/);
+  });
+  it('great work earns performance tips with a readable breakdown, small talk once per visit', () => {
+    const s = sim.newGame({ companyName: 'Tips', color: '#3a3', seed: 21 });
+    const k = sim.knock(s, sim.TUTORIAL_HOUSE);
+    sim.applyPitchOutcome(s, sim.TUTORIAL_HOUSE, { result: 'deal', price: k.context!.fairPrice, freq: 7, addOns: [], trust: 0.7, rounds: 1, minutes: 5, summary: '' });
+    const c = s.clients[0];
+    expect(c.rapport).toBeGreaterThan(0.3);
+    let tips = 0;
+    let parts = 0;
+    for (let i = 0; i < 12; i++) {
+      c.lastServiceDay = -1;
+      s.owner.minute = sim.DAY_START;
+      const spec = sim.buildMowJob(s, c.id);
+      if ('error' in spec) throw new Error(spec.error);
+      const out = sim.completeManualJob(s, spec, sim.debug.syntheticResult(spec, Math.min(100, c.expectation + 12)));
+      if (out.tip > 0) { tips++; parts += out.tipParts?.length ?? 0; expect(out.tipParts!.reduce((a, p) => a + p.amount, 0)).toBeCloseTo(out.tip, 1); }
+      expect(out.canTalk).toBe(true);
+      expect(out.streak).toBe(i + 1);
+    }
+    expect(tips).toBeGreaterThan(4);
+    expect(parts).toBeGreaterThan(tips);
+    // Rose is a retiree: friendly talk lands, direct talk does not.
+    const r0 = c.rapport!;
+    const talk = sim.smallTalk(s, c.id, 'friendly');
+    expect(talk.ok).toBe(true);
+    expect(talk.reaction).toBe('liked');
+    expect(talk.reply.length).toBeGreaterThan(0);
+    expect(c.rapport!).toBeGreaterThan(r0);
+    expect(c.likedTone).toBe('friendly');
+    expect(sim.smallTalk(s, c.id, 'direct').ok).toBe(false);
+    c.talkDay = -1;
+    const cold = sim.smallTalk(s, c.id, 'direct');
+    expect(cold.reaction).toBe('disliked');
+    expect(cold.tip).toBe(0);
+    invariants(s);
+  });
+});
+
+describe('save migration', () => {
+  it('lifts old contract prices and wages to the new economy once', () => {
+    const s = sim.newGame({ companyName: 'Old', color: '#3a3', seed: 5 });
+    const k = sim.knock(s, sim.TUTORIAL_HOUSE);
+    sim.applyPitchOutcome(s, sim.TUTORIAL_HOUSE, { result: 'deal', price: 40, freq: 7, addOns: [], trust: 0.5, rounds: 1, minutes: 5, summary: '' });
+    void k;
+    delete s.flags.econ2;
+    const price = s.clients[0].price;
+    sim.migrate(s);
+    expect(s.clients[0].price).toBeCloseTo(price * 1.3, 2);
+    expect(s.flags.econ2).toBe(1);
+    sim.migrate(s);
+    expect(s.clients[0].price).toBeCloseTo(price * 1.3, 2);
+  });
+});
+
 describe('long run with bots', () => {
   it('keeps invariants for 200 days and due dates move forward', () => {
     let lastDay = -1;

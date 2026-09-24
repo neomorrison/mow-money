@@ -55,7 +55,7 @@ function charts(s: GameState): Raw {
 function valuationCard(s: GameState): Raw {
   const v = safe(() => sim.valuation(s), null, 'valuation');
   if (!v) return html`<div class="ui-card"><div class="ui-card__title">${raw(icon('briefcase'))}Company value</div><p class="ui-muted" style="margin-top:8px">A valuation needs a few weeks of history.</p></div>`;
-  const pts = Math.floor(Math.sqrt(Math.max(0, v.total) / 10000));
+  const pts = sim.legacyPointsFor(v.total);
   return html`<div class="ui-card ui-card--dark ui-val">
     <div class="ui-row"><span class="ui-card__title" style="color:#fff">${raw(icon('briefcase'))}Company value</span></div>
     <div class="ui-val__total">${money(v.total)}</div>
@@ -103,13 +103,13 @@ function achievements(s: GameState): Raw {
 function sell(s: GameState): Raw {
   const can = safe(() => sim.canSellCompany(s), { ok: false, message: 'Selling opens after the first year.' });
   const v = safe(() => sim.valuation(s), null);
-  const pts = v ? Math.floor(Math.sqrt(Math.max(0, v.total) / 10000)) : 0;
+  const pts = v ? sim.legacyPointsFor(v.total) : 0;
   const perks = safe(() => sim.LEGACY_PERKS, []);
   return html`<div class="ui-grid ui-grid--2">
     ${valuationCard(s)}
     <div class="ui-card ui-card--sun">
       <div class="ui-card__title">${raw(icon('crown'))}Sell and start again</div>
-      <p class="ui-muted ui-strong" style="margin:8px 0 12px">Sell the company for legacy points (square root of the value over $10,000). Spend them on perks that carry into every new company.</p>
+      <p class="ui-muted ui-strong" style="margin:8px 0 12px">Sell the company for legacy points (square root of the value over $20,000). Spend them on perks that carry into every new company.</p>
       <div class="ui-row" style="gap:12px;margin-bottom:14px"><span class="ui-stat__value">+${pts}</span><span class="ui-muted ui-strong">legacy point${pts === 1 ? '' : 's'} today${s.legacy?.points ? `, ${s.legacy.points} banked` : ''}</span></div>
       ${perks.length ? html`<div class="ui-col" style="gap:6px;margin-bottom:16px">${perks.map((p) => html`<div class="ui-row ui-small"><span class="ui-chip ui-chip--dark">${p.cost} pt</span><b>${p.name}</b><span class="ui-muted">${p.blurb}</span></div>`)}</div>` : ''}
       <button class="ui-btn ${can.ok ? 'ui-btn--danger' : ''}" data-click="sell" ${can.ok ? '' : raw('disabled')}>${raw(icon('sell'))}Sell the company</button>

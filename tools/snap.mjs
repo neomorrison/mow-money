@@ -32,7 +32,7 @@ const BROWSERS = [
   (process.env.LOCALAPPDATA || '') + '/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
-  '/usr/bin/google-chrome', '/usr/bin/chromium',
+  '/usr/bin/google-chrome', '/usr/bin/chromium', '/opt/pw-browsers/chromium',
 ].filter(Boolean);
 const executablePath = BROWSERS.find((p) => { try { return fs.existsSync(p); } catch { return false; } });
 if (!executablePath) { console.error('No Chrome/Edge found'); process.exit(2); }
@@ -83,7 +83,9 @@ if (has('dist')) {
 const [w, h] = (has('mobile') ? '390x844' : flag('size', '1440x900')).split('x').map(Number);
 const browser = await puppeteer.launch({
   executablePath, headless: true,
-  args: ['--autoplay-policy=no-user-gesture-required', '--mute-audio', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
+  args: ['--autoplay-policy=no-user-gesture-required', '--mute-audio', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist',
+    // containers and CI often run as root, where Chrome refuses to start sandboxed
+    ...(process.getuid?.() === 0 ? ['--no-sandbox'] : [])],
 });
 const page = await browser.newPage();
 await page.setViewport({ width: w, height: h, deviceScaleFactor: 1, isMobile: has('mobile'), hasTouch: has('mobile') });

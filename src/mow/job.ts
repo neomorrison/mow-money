@@ -72,6 +72,7 @@ export class MowJob {
   private damages: Damage[] = [];
   private damaged = new Set<Obstacle>();
   private damagedBeds = new Set<number>();
+  private bedWarned = new Set<number>();
   private damagedFences = new Set<unknown>();
   private stripeStrength: number;
   private stripeVis: number;
@@ -142,6 +143,7 @@ export class MowJob {
       zeroTurn: !!m.zeroTurn,
       carSteer: !!m.rideOn && !m.zeroTurn,
       accel: m.rideOn ? 2.6 : 4.2,
+      assist: settings.laneAssist === false ? 0 : 0.2,
     };
     this.stripeStrength = (m.stripe ?? 0.3) + (spec.striping ? 0.25 : 0) + (perks.has('straight_lines') ? 0.1 : 0);
     this.stripeVis = Math.min(1, 0.35 + 0.65 * Math.min(1, this.stripeStrength));
@@ -152,6 +154,7 @@ export class MowJob {
       x: 0, z: 0, prevX: 0, prevZ: 0, heading: 0, width: m.deckWidth ?? 1, length: Math.min(0.7, Math.max(0.4, (m.deckWidth ?? 1) * 0.4)),
       deckIn: 3, deckIndex: 0, maxGrassIn: m.maxGrassIn ?? 6, stripeVis: this.stripeVis, bagActive: false, mulching: !!m.mulching,
       discharge: m.id === 'reel' || m.id === 'gangreel' ? 0 : m.mulching ? 0.35 : 1, wet: spec.wet, frame: 0, time: 0, dt: 0,
+      autoStripe: !!spec.autoStripe, bandW: Math.max(0.8, m.deckWidth ?? 1),
     };
 
     this.build();
@@ -202,6 +205,10 @@ export class MowJob {
     this.u.uDull.value = 1 - this.spec.sharpness;
     this.u.uStripeGain.value = 0.16 + 0.22 * Math.min(1, this.stripeStrength);
     this.u.uDeck.value = this.deckHeights[this.deckIdx];
+    // lane guides one deck width apart (a little overlap), along the lot depth to start with
+    this.guideSpacing = Math.max(0.6, (this.spec.mower.deckWidth ?? 1) * (this.spec.autoStripe ? 1 : 0.92));
+    this.u.uGuide.value.set(0, 1, this.guideSpacing, 0);
+    this.u.uGuideOn.value = this.settings.laneGuides === false ? 0 : 1;
 
     this.sky = new Sky(this.scene, this.spec.weather, this.settings.shadows, this.touch ? 1024 : 2048);
     this.sky.setShadowSpan(Math.min(45, span * 0.65 + 8));
@@ -241,6 +248,11 @@ export class MowJob {
     this.ring.visible = this.cone.visible = false;
     this.ring.renderOrder = this.cone.renderOrder = 2;
     this.scene.add(this.ring, this.cone);
+    // hazard warning: a red ring around a gnome, sprinkler or toy the deck is about to hit
+    this.warn = new THREE.Mesh(ringGeo.clone(), new THREE.MeshBasicMaterial({ color: 0xff4b3a, transparent: true, opacity: 0.8, depthWrite: false }));
+    this.warn.visible = false;
+    this.warn.renderOrder = 3;
+    this.scene.add(this.warn);
 
     // start on the driveway at the sidewalk, facing into the lot
     const d = L.driveway[0];
@@ -257,6 +269,7 @@ export class MowJob {
     this.input = new Input(canvas, this.hud.joy, () => this.active);
     this.input.onAnyInput = () => audio.unlock();
     this.minimap = new Minimap(this.hud.minimap, this.field);
+    this.minimap.setHazards(L.obstacles.filter((o) => !o.solid && (o.kind === 'gnome' || o.kind === 'sprinkler' || o.kind === 'ball')));
     this.minimap.redraw(this.deckHeights[this.deckIdx], false);
 
     this.ro = new ResizeObserver(() => this.resize());
@@ -511,7 +524,8 @@ export class MowJob {
       let mult = Math.max(0.4, 1 - 0.06 * Math.max(0, hAhead - 4));
       if (spec.wet) mult *= 0.85;
       if (di.slow) mult *= 0.45;
-      m.step(dt, di, this.mowerParams, mult);
+      // the demo autopilot steers precisely on its own: no lane assist while it drives
+      m.step(dt, di, this.auto ? { ...this.mowerParams, assist: 0 } : this.mowerParams, mult);
       const px = m.prevX, pz = m.prevZ;
       resolve(this.colliders, m, this.mowerR, this.deckHalf, null, m.hit);
       if (m.hit.kind === 'water') {
@@ -524,7 +538,12 @@ export class MowJob {
       }
       m.afterCollide(dt);
       this.onCollision(m.hit.kind, m.hit.speedInto, m.hit.fence);
-      this.moved += Math.hypot(m.x - px, m.z - pz);
+      const step = Math.hypot(m.x - px, m.z - pz);
+      this.moved += step;
+      if (Math.abs(m.omega) < 0.3) {
+        const c = Math.abs(Math.cos(m.heading)), sn = Math.abs(Math.sin(m.heading));
+        if (c > 0.94) this.runZ += step; else if (sn > 0.94) this.runX += step;
+      }
       this.cutWithDeck(dt);
       this.checkProps();
     } else {
@@ -580,7 +599,12 @@ export class MowJob {
       for (const b of o.bedTouched) {
         const hits = o.bedHits[b];
         if (hits > deckCells * 0.06) this.world.flowers.squash(b, m.x, m.z, this.deckHalf * 0.9);
-        if (!this.damagedBeds.has(b) && hits > deckCells * 0.12) {
+        // a graze only warns; driving well into the bed is damage
+        if (!this.bedWarned.has(b) && hits > deckCells * 0.06) {
+          this.bedWarned.add(b);
+          this.hud.toast('Careful: flower bed', 'warn');
+        }
+        if (!this.damagedBeds.has(b) && hits > deckCells * 0.35) {
           this.damagedBeds.add(b);
           this.addDamage({ kind: 'flowerbed', label: 'Flower bed trampled', points: 6, cost: 30 }, m.x, 0.2, m.z, [0xe8456b, 0xf2c230, 0xf4f4f4, 0x3f7a35]);
           audio.play('break', { volume: 0.6 });
@@ -796,6 +820,39 @@ export class MowJob {
       this.cone.scale.setScalar(r);
     }
 
+    // hazard warning ring on the nearest breakable prop in front of the deck
+    let near: { x: number; z: number; r: number } | null = null;
+    if (this.tool === 1 && this.started && !this.ended) {
+      const fx = Math.sin(m.heading), fz = Math.cos(m.heading);
+      let best = Infinity;
+      for (const o of this.world.propByObstacle.keys()) {
+        if (this.damaged.has(o)) continue;
+        const dx = o.x - m.x, dz = o.z - m.z;
+        const along = dx * fx + dz * fz, across = Math.abs(dx * -fz + dz * fx);
+        if (along < -0.6 || along > 3.2 || across > this.deckHalf + 1) continue;
+        const d = Math.hypot(dx, dz);
+        if (d < best) { best = d; near = o; }
+      }
+    }
+    this.warn.visible = !!near;
+    if (near) {
+      const pulse = 0.5 + 0.5 * Math.sin(this.u.uTime.value * 10);
+      this.warn.position.set(near.x, 0.05, near.z);
+      this.warn.scale.setScalar(Math.max(0.35, near.r + 0.25) * (1 + 0.15 * pulse));
+      (this.warn.material as THREE.MeshBasicMaterial).opacity = 0.55 + 0.35 * pulse;
+    }
+    // dirty concrete glows while the blower is out or the missed-spot flash runs
+    const hiGoal = this.flashT > 0 ? 1 : this.tool === 3 && this.started ? 0.85 : 0;
+    this.u.uCleanHi.value += (hiGoal - this.u.uCleanHi.value) * Math.min(1, dt * 6);
+    // guides follow the direction the player actually mows (stripes along the depth or across the lot)
+    if (!spec.autoStripe) {
+      const wantX = this.runX > 8 && this.runX > this.runZ * 1.4 ? true : this.runZ > 8 && this.runZ > this.runX * 1.4 ? false : this.guideAxisX;
+      if (wantX !== this.guideAxisX) {
+        this.guideAxisX = wantX;
+        this.u.uGuide.value.set(wantX ? 1 : 0, wantX ? 0 : 1, this.guideSpacing, 0);
+      }
+    }
+
     // camera
     const actor = this.tool === 1 ? m : w;
     this.rig.walking = this.tool !== 1;
@@ -857,17 +914,22 @@ export class MowJob {
     this.hudT -= dt;
     if (this.hudT <= 0) { this.hudT = 0.1; this.hud.update(this.hudState()); }
     this.miniT -= dt;
-    if (this.miniT <= 0) { this.miniT = 0.5; this.minimap.redraw(this.deckHeights[this.deckIdx], this.flashT > 0 && Math.sin(this.u.uTime.value * 9) > -0.3); }
+    if (this.miniT <= 0) { this.miniT = 0.5; this.minimap.redraw(this.deckHeights[this.deckIdx], this.flashT > 0 && Math.sin(this.u.uTime.value * 9) > -0.3, this.tool === 3 || this.flashT > 0); }
     this.miniDrawT -= dt;
     if (this.miniDrawT <= 0) {
       this.miniDrawT = 1 / 15;
-      this.minimap.draw({ x: m.x, z: m.z, h: m.heading }, this.tool === 1 ? null : { x: w.x, z: w.z, h: w.heading }, this.world.vehiclePos);
+      this.minimap.draw({ x: m.x, z: m.z, h: m.heading }, this.tool === 1 ? null : { x: w.x, z: w.z, h: w.heading }, this.world.vehiclePos, this.damaged);
     }
   }
   private lastLightning = 0;
   private miniDrawT = 0;
   private ring!: THREE.Mesh;
   private cone!: THREE.Mesh;
+  private warn!: THREE.Mesh;
+  private guideSpacing = 1;
+  private guideAxisX = false;
+  private runX = 0;
+  private runZ = 0;
   private hardDebris = 0;
 
   private softHint(): string | null {
@@ -879,6 +941,7 @@ export class MowJob {
       return `Taking off too much at once stresses the lawn. Raise the deck (${this.touch ? 'up arrow' : 'E'}).`;
     if (this.deck.pushedOver > 20) return 'This grass is too tall for the mower. Make a second pass.';
     if (r.coverage > 0.93 && r.trim < 0.7 && this.spec.trimmer && this.tool === 1) return `Edges left. Trim along beds, walls and trees (${this.touch ? 'trimmer' : '2'}).`;
+    if (this.tool === 3 && r.cleanup < 0.97) return 'Glowing orange spots still need clearing. Blow them onto the lawn.';
     if (r.coverage > 0.93 && r.cleanup < 0.8 && this.spec.blower && this.tool !== 3) return `Clippings on the concrete. Blow them back onto the lawn (${this.touch ? 'blower' : '3'}).`;
     void cur;
     return null;
@@ -1008,6 +1071,7 @@ export class MowJob {
     this.rain?.dispose();
     this.ring.geometry.dispose(); (this.ring.material as THREE.Material).dispose();
     this.cone.geometry.dispose(); (this.cone.material as THREE.Material).dispose();
+    this.warn.geometry.dispose(); (this.warn.material as THREE.Material).dispose();
     this.sky.dispose();
     this.field.dispose();
     // procedural meshes of the actors

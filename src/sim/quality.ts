@@ -1,7 +1,7 @@
 // Job quality (docs/DESIGN.md section 9).
 import type { Damage, MowJobResult, MowJobSpec, QualityBreakdown } from '../core/types';
 import { clamp } from '../core/rng';
-import { STRESS_POINTS, STRESS_THRESHOLD, WET_PENALTY } from './constants';
+import { PREMIUM_STRIPE_MIN, PREMIUM_STRIPE_PENALTY, STRESS_POINTS, STRESS_THRESHOLD, STRIPE_BONUS, STRIPE_BONUS_WANTED, WET_PENALTY } from './constants';
 import { starsFor } from './reputation';
 
 export const DAMAGE_LABEL: Record<Damage['kind'], string> = {
@@ -24,19 +24,21 @@ export function heightPenalty(cutIn: number, targetIn: number): number {
   return 8 * Math.max(0, Math.abs(f(cutIn) - f(targetIn)) - 0.5);
 }
 
+/** Stripe bonus points added on top of the base score (and past the mower's cap). Never a penalty. */
+export function stripeBonus(stripe: number, wantsStripes: boolean, striping = false): number {
+  const max = (wantsStripes ? STRIPE_BONUS_WANTED : STRIPE_BONUS) * (striping ? 1.25 : 1);
+  return max * u(stripe);
+}
+
 export function computeQuality(spec: MowJobSpec, result: MowJobResult): QualityBreakdown {
-  const perks = spec.perks ?? [];
-  const stripeRaw = u(result.stripe) + (perks.includes('straight_lines') ? 0.1 : 0);
-  const stripe = Math.min(1, stripeRaw);
-  const stripeTerm = spec.wantsStripes ? stripe : Math.max(stripe, 0.7);
+  const stripe = u(result.stripe);
   const cov = u(result.coverage);
   const parts = [
-    { label: 'Coverage', value: 50 * cov * cov * cov, max: 50 },
-    { label: 'Evenness', value: 14 * u(result.evenness), max: 14 },
-    { label: 'Edges', value: 12 * u(result.trim), max: 12 },
-    { label: 'Cleanup', value: 8 * u(result.cleanup), max: 8 },
-    { label: 'Stripes', value: 10 * stripeTerm, max: 10 },
-    { label: 'No clumps', value: 6 * (1 - u(result.clumps)), max: 6 },
+    { label: 'Coverage', value: 54 * cov * cov * cov, max: 54 },
+    { label: 'Evenness', value: 15 * u(result.evenness), max: 15 },
+    { label: 'Edges', value: 13 * u(result.trim), max: 13 },
+    { label: 'Cleanup', value: 10 * u(result.cleanup), max: 10 },
+    { label: 'No clumps', value: 8 * (1 - u(result.clumps)), max: 8 },
   ].map((p) => ({ ...p, value: Math.round(p.value * 10) / 10 }));
   const qraw = parts.reduce((s, p) => s + p.value, 0);
   const sharp = u(spec.sharpness);
@@ -44,6 +46,10 @@ export function computeQuality(spec: MowJobSpec, result: MowJobResult): QualityB
   const cap = spec.mower.qualityCap ?? 100;
   const capped = scaled > cap;
   let q = Math.min(cap, scaled);
+  // Stripes are a bonus on top: they can lift a job past the mower's quality cap.
+  const bonus = Math.round(stripeBonus(stripe, spec.wantsStripes, spec.striping) * 10) / 10;
+  if (bonus >= 0.1) parts.push({ label: 'Stripe bonus', value: bonus, max: Math.round((spec.wantsStripes ? STRIPE_BONUS_WANTED : STRIPE_BONUS) * (spec.striping ? 1.25 : 1) * 10) / 10 });
+  q += bonus;
   const penalties: { label: string; points: number }[] = [];
   const dull = qraw - scaled;
   if (dull >= 0.5) penalties.push({ label: 'Dull blade', points: Math.round(dull * 10) / 10 });
@@ -53,6 +59,7 @@ export function computeQuality(spec: MowJobSpec, result: MowJobResult): QualityB
   const diff = f(result.cutHeightIn) - f(spec.targetIn);
   const hp = heightPenalty(result.cutHeightIn, spec.targetIn);
   if (hp > 0.05) penalties.push({ label: `Cut ${Math.abs(diff).toFixed(1)} in too ${diff > 0 ? 'high' : 'low'}`, points: Math.round(hp * 10) / 10 });
+  if (spec.premiumStripes && stripe < PREMIUM_STRIPE_MIN) penalties.push({ label: 'Paid for stripes, got none', points: PREMIUM_STRIPE_PENALTY });
   for (const d of result.damages ?? []) {
     const pts = Number.isFinite(d.points) && d.points > 0 ? d.points : DAMAGE_POINTS[d.kind] ?? 3;
     const label = d.kind === 'other' ? (d.label ? `Damaged: ${d.label.toLowerCase()}` : 'Damage') : DAMAGE_LABEL[d.kind];

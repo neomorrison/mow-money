@@ -157,7 +157,7 @@ export function valuation(state: GameState): ValuationBreakdown {
   const ap = annualProfit(state);
   const ret = retention(state);
   const rep = reputation(state);
-  const multiple = 2 + 0.5 * rep + ret;
+  const multiple = 1.5 + 0.45 * rep + ret;
   const bookValue = totalBookValue(state);
   const d = debt(state);
   const total = Math.max(0, ap) * multiple + bookValue + state.cash - d;

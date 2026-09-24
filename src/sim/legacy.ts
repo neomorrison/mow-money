@@ -13,8 +13,11 @@ export const LEGACY_PERKS: LegacyPerkSpec[] = [
   { id: 'quick_knocks', name: 'Quick Knocks', blurb: 'Door knocks take one minute less.', cost: 1 },
 ];
 
+/** Valuation per squared legacy point (section 19). */
+export const LEGACY_UNIT = 20000;
+
 export function legacyPointsFor(value: number): number {
-  return Math.floor(Math.sqrt(Math.max(0, value) / 10000));
+  return Math.floor(Math.sqrt(Math.max(0, value) / LEGACY_UNIT));
 }
 
 export function canSellCompany(state: GameState): ActionResult {

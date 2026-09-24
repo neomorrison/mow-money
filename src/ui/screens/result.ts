@@ -1,5 +1,8 @@
 // Job Result: quality count-up, stars, breakdown, penalties, client reaction, pay, satisfaction change.
 import { audio } from '../../audio';
+import * as sim from '../../sim';
+import { store } from '../../core/store';
+import type { Tone } from '../../core/types';
 import { money } from '../../core/format';
 import { html, raw, type Raw } from '../html';
 import { icon } from '../icons';
@@ -17,6 +20,34 @@ const MOOD: Record<string, { label: string; icon: string; color: string }> = {
   unhappy: { label: 'Unhappy', icon: 'frown', color: 'var(--ui-orange)' },
   angry: { label: 'Angry', icon: 'frown', color: 'var(--ui-red)' },
 };
+
+const TONE_LABEL: Record<Tone, string> = { friendly: 'Friendly', professional: 'Professional', direct: 'Direct', funny: 'Funny' };
+const TONE_ICON: Record<Tone, string> = { friendly: 'smile', professional: 'handshake', direct: 'target', funny: 'sparkle' };
+
+/** Small talk after the job: pick a tone, the client reacts, a tone they like earns a charm tip. */
+function talkView(clientId: string, canTalk: boolean): Raw | string {
+  const r = ui.result;
+  if (!r) return '';
+  const t = r.talk;
+  if (t) {
+    const cls = t.reaction === 'liked' ? 'ui-note--good' : t.reaction === 'disliked' ? 'ui-note--bad' : '';
+    return html`<div class="ui-talk">
+      <div class="ui-talk__line ui-talk__line--you">${t.playerLine}</div>
+      <div class="ui-talk__line">${t.reply}</div>
+      <div class="ui-note ${cls}" style="margin-top:8px">${raw(icon(t.reaction === 'liked' ? 'heart' : t.reaction === 'disliked' ? 'frown' : 'meh'))}${t.message}</div>
+    </div>`;
+  }
+  if (!canTalk) return '';
+  const c = sim.clientById(store.state, clientId);
+  if (!c || !sim.canSmallTalk(store.state, clientId)) return '';
+  const known = c.likedTone;
+  return html`<div class="ui-talk">
+    <div class="ui-label">Small talk${known ? html` <span class="ui-tiny ui-muted">· they liked ${TONE_LABEL[known].toLowerCase()} last time</span>` : ''}</div>
+    <div class="ui-talk__tones">
+      ${sim.TONES.map((tone) => html`<button class="ui-btn ui-btn--sm ${known === tone ? 'ui-btn--primary' : ''}" data-click="talk" data-tone="${tone}">${raw(icon(TONE_ICON[tone]))}${TONE_LABEL[tone]}</button>`)}
+    </div>
+  </div>`;
+}
 
 function verdict(q: number): string {
   if (q >= 95) return 'Flawless';
@@ -67,6 +98,7 @@ function render(): Raw {
               <span class="ui-chip" style="background:${mood.color};color:#fff">${raw(icon(mood.icon))}${mood.label}</span></div>
           </div>
           <blockquote class="ui-bubble">${o.reaction}</blockquote>
+          ${talkView(o.clientId, !!o.canTalk)}
           ${o.trialResult ? html`<div class="ui-note ${o.trialResult === 'signed' ? 'ui-note--good' : 'ui-note--bad'}" style="margin-top:12px">${raw(icon(o.trialResult === 'signed' ? 'handshake' : 'x'))}${o.trialResult === 'signed' ? 'Trial passed. They signed on as a client.' : 'Trial failed. They passed on the contract.'}</div>` : ''}
           <div style="margin-top:16px">
             <div class="ui-row" style="justify-content:space-between"><span class="ui-label">Satisfaction</span>
@@ -83,11 +115,13 @@ function render(): Raw {
           <div class="ui-result__paid"><span class="ui-label">Paid</span><b class="ui-result__cash" data-v="${o.paid}">${money(reduced ? o.paid : 0)}</b></div>
           <div class="ui-result__minis">
             ${o.tip > 0 ? html`<div class="ui-mini ui-mini--tip">${raw(icon('heart'))}<span>Tip</span><b>+${money(o.tip)}</b></div>` : ''}
+            ${r.talk && r.talk.tip > 0 ? html`<div class="ui-mini ui-mini--tip">${raw(icon('smile'))}<span>Charm tip</span><b>+${money(r.talk.tip)}</b></div>` : ''}
             <div class="ui-mini">${raw(icon('level'))}<span>XP</span><b>+${Math.round(o.xp)}</b></div>
             <div class="ui-mini">${raw(icon('clock'))}<span>Time</span><b>${Math.round(o.minutes)} min</b></div>
             ${o.fuelCost > 0 ? html`<div class="ui-mini ui-mini--cost">${raw(icon('fuel'))}<span>Fuel</span><b>-${money(o.fuelCost, true)}</b></div>` : ''}
             ${o.damageCost > 0 ? html`<div class="ui-mini ui-mini--cost">${raw(icon('alert'))}<span>Damage</span><b>-${money(o.damageCost)}</b></div>` : ''}
           </div>
+          ${o.tipParts && o.tipParts.length ? html`<div class="ui-tipparts">${o.tipParts.map((p) => html`<span class="ui-chip">${p.label} +${money(p.amount, true)}</span>`)}</div>` : ''}
         </div>
         ${events.length ? html`<div class="ui-card ui-card--flat"><div class="ui-col" style="gap:6px">${events.map((e) => html`<div class="ui-small ui-strong">${raw(icon('info'))} ${e}</div>`)}</div></div>` : ''}
         <button class="ui-btn ui-btn--primary ui-btn--lg ui-btn--block" data-click="continue">Continue<kbd class="ui-kbd ui-hide-sm">Enter</kbd></button>
@@ -129,6 +163,15 @@ export const resultScreen: Screen = {
   },
   handlers: {
     continue: () => finishResult(),
+    talk: (el: HTMLElement) => {
+      const r = ui.result;
+      if (!r || r.talk || !store.loaded) return;
+      const res = sim.smallTalk(store.state, r.outcome.clientId, (el.dataset.tone || 'friendly') as Tone);
+      if (!res.ok) return;
+      r.talk = res;
+      try { audio.play(res.tip > 0 ? 'tip' : 'click', { volume: 0.6 }); } catch { /* ignore */ }
+      store.commit({ saveNow: true });
+    },
     hub: () => navigate('hub'),
     skills: () => { ui.result = null; navigate('skills'); },
   },

@@ -3,6 +3,7 @@ import type { Client, GameState, HouseView, JobTicket, KnockResult, PitchContext
 import { ARCHETYPE_BY_ID } from '../data/archetypes';
 import { HOOD_BY_ID, TOWN_BY_ID, splitHoodKey } from '../data/hoods';
 import { NOBODY_HOME, NO_SOLICITING } from '../data/dialogue';
+import { pickFresh } from '../data/pick';
 import { bus } from '../core/bus';
 import { clock, duration, money } from '../core/format';
 import { hashSeed, makeRng } from '../core/rng';
@@ -421,7 +422,7 @@ export class NeighborhoodScreen {
       // Someone answered but turned the pitch down at the door (the sim marks the house cold).
       const after = this.view(id);
       if (after?.cold && res.message) this.toast(res.message, 'info');
-      else this.toast(rng.pick(NOBODY_HOME), 'info');
+      else this.toast(pickFresh(rng, NOBODY_HOME), 'info');
     }
   }
 

@@ -324,7 +324,8 @@ export function runCrews(state: GameState, rng: Rng): CrewDayResult {
         continue;
       }
       let mu = baseMu - 10 * (1 - (mowerItem?.sharpness ?? 1));
-      if (c.wantsStripes || c.addOns.includes('stripes')) mu -= 10 * Math.max(0, 0.7 - stripe);
+      // Stripes are a bonus (section 9): crews lay roughly what their mower allows.
+      mu += (c.wantsStripes || c.addOns.includes('stripes') ? 5 : 3) * stripe;
       const sim = simulatedJob(state, rng, c, mu, sigma, g.mower!);
       const skillAvg = present.reduce((s, e) => s + e.skill, 0) / present.length;
       const damage = rng.chance(0.04 * (1 - skillAvg / 100)) ? 1 : 0;

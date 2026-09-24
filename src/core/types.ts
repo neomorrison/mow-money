@@ -185,6 +185,10 @@ export interface Client {
   commercial?: { bidId: Id; weeksLeft: number; lowStreak: number };
   status: 'active' | 'paused';
   history: number[];        // last 8 Q values
+  // ---- added for charm tipping (optional so older saves load)
+  rapport?: number;         // 0-1 how much they like you personally (charm tips)
+  talkDay?: number;         // last day of post-job small talk
+  likedTone?: Tone;         // a tone they are known to like (learned from small talk)
 }
 
 export interface LostClient { houseId: Id; day: number; reason: string; price: number }
@@ -400,6 +404,8 @@ export interface MowJobSpec {
   tutorial: boolean;
   companyColor?: string;    // tints materials named "Body" (mowers, yard signs)
   vehicleModel?: string;    // model key of the owner's vehicle parked at the curb
+  premiumStripes?: boolean; // the client pays for the premium stripes add-on
+  autoStripe?: boolean;     // striping kit or Straight Lines perk: bands lay themselves
 }
 
 export interface Damage { kind: 'flowerbed' | 'gnome' | 'sprinkler' | 'toy' | 'fence' | 'other'; label: string; points: number; cost: number }
@@ -446,6 +452,21 @@ export interface JobOutcome {
   damageCost: number;
   trialResult?: 'signed' | 'declined';
   events: string[];
+  // ---- added for performance tipping
+  tipParts?: { label: string; amount: number }[];   // how the tip was earned
+  streak?: number;          // consecutive owner jobs that met the client's expectation
+  canTalk?: boolean;        // small talk is available on the result screen
+}
+
+export interface SmallTalkResult {
+  ok: boolean;
+  message: string;
+  playerLine: string;
+  reply: string;
+  reaction: 'liked' | 'neutral' | 'disliked';
+  tip: number;
+  rapport: number;
+  satisfaction: number;
 }
 
 // ---------------------------------------------------------------- pitch contract
