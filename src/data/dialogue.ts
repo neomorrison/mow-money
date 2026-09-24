@@ -738,8 +738,11 @@ export function linesFor(archetypeId: string): LineSet {
 }
 
 export function fill(text: string, vars: Record<string, string | number | undefined>): string {
-  return text.replace(/\{(\w+)\}/g, (m, k: string) => {
-    const v = vars[k];
-    return v === undefined || v === '' ? m : String(v);
-  });
+  return text
+    .replace(/\{(\w+)\}/g, (m, k: string) => {
+      const v = vars[k];
+      return v === undefined || v === '' ? m : String(v);
+    })
+    // "Cut Above Lawn Co." + "." must not print "Co.."
+    .replace(/(?<!\.)\.\.(?!\.)/g, '.');
 }

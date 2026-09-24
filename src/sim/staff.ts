@@ -2,7 +2,8 @@
 import type { ActionResult, Candidate, Client, Employee, GameState, Id, StaffRole } from '../core/types';
 import type { Rng } from '../core/rng';
 import { clamp } from '../core/rng';
-import { FIRST_NAMES, LAST_NAMES } from '../data/archetypes';
+import { LAST_NAMES, firstNameFor } from '../data/archetypes';
+import { PORTRAIT_GENDER } from '../data/assets';
 import { STAFF_PORTRAIT_KEYS } from '../data/assets';
 import { HOOD_BY_ID, splitHoodKey } from '../data/hoods';
 import { JOB_AD_COST, PAID_HOURS, SALES_COMMISSION, SALES_KNOCKS, SKILL_GROWTH, WAGE_TABLE } from './constants';
@@ -50,10 +51,11 @@ function makeCandidate(state: GameState, rng: Rng): Candidate {
   let reliability = rng.range(0.9, 0.99);
   if (traits.includes('Unreliable')) reliability -= 0.12;
   const askWage = Math.round(marketWage(role, skill) * rng.range(0.95, 1.15) * 4) / 4;
+  const portrait = rng.pick(STAFF_PORTRAIT_KEYS as readonly string[]);
   return {
     id: newId(state, 'k'),
-    name: `${rng.pick(FIRST_NAMES)} ${rng.pick(LAST_NAMES)}`,
-    portrait: rng.pick(STAFF_PORTRAIT_KEYS as readonly string[]),
+    name: `${firstNameFor(PORTRAIT_GENDER[portrait], rng.pick)} ${rng.pick(LAST_NAMES)}`,
+    portrait,
     role, wage: askWage, skill: Math.round(skill), speed: r2(clamp(speed, 0.8, 1.25)), reliability: r2(clamp(reliability, 0.7, 0.995)),
     traits, askWage,
   };

@@ -46,7 +46,9 @@ describe('new game', () => {
     expect(rose.info.ownerName).toBe('Rose Albright');
     expect(rose.info.archetypeId).toBe('retiree');
     expect(rose.lead).toBe(true);
-    expect(rose.grassIn).toBeCloseTo(5, 1);
+    expect(rose.grassIn).toBeCloseTo(4.2, 1);
+    expect(rose.info.ownerName).toBe("Rose Albright");
+    expect(rose.info.portrait).toBe("p_retiree_2");
     expect(sim.hoods(s).find((h) => h.key === 'home.oak')?.lockReason).toMatch(/^Needs /);
     invariants(s);
   });

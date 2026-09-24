@@ -8,7 +8,7 @@ export const EQUIPMENT: EquipmentSpec[] = [
     id: 'reel', name: "Grandpa's Reel Mower", category: 'mower', tier: 0, price: 0,
     blurb: 'Quiet, clean cut on short grass. Chokes on anything tall.',
     model: 'mower_reel', thumb: 'mower_reel',
-    deckWidth: 1.0, speed: 2.6, turnRate: 2.6, qualityCap: 90, stripe: 0.45, maxGrassIn: 4.5,
+    deckWidth: 1.0, speed: 2.6, turnRate: 2.6, qualityCap: 90, stripe: 0.45, maxGrassIn: 5.0,
     fuelGalPerHr: 0, wearMult: 0.7, reliability: 0.99, deckHeights: [2, 2.5, 3], transportSize: 1,
   },
   {

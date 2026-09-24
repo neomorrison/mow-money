@@ -72,7 +72,7 @@ if (has('dist')) {
   closeServer = async () => server.close();
 } else {
   const { createServer } = await import('vite');
-  const vite = await createServer({ root: ROOT, server: { port: 0, host: '127.0.0.1' }, logLevel: 'error', clearScreen: false });
+  const vite = await createServer({ root: ROOT, server: { port: 0, host: '127.0.0.1', hmr: false, watch: null }, logLevel: 'error', clearScreen: false });
   await vite.listen();
   const addr = vite.httpServer.address();
   base = `http://127.0.0.1:${addr.port}`;

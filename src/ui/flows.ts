@@ -210,6 +210,8 @@ export function startMow(clientId: string | null, returnTo?: string): void {
         goHash(back);
       },
     }, prefs.s);
+    // Test hook for headless playthroughs (tools/snap.mjs): __mmJob.job.autoMow(), .finishNow().
+    (window as unknown as { __mmJob?: unknown }).__mmJob = mowHandle;
   } catch (e) {
     console.error(e);
     teardown();

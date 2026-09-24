@@ -158,6 +158,7 @@ export interface HouseState {
   hoaUntil?: number;        // HOA letter pressure expiry
   yardSign?: boolean;
   exClient?: boolean;
+  met?: boolean;            // the owner has talked to them (portrait and name revealed on the map)
 }
 
 export interface Client {

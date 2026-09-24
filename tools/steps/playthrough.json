@@ -1,0 +1,177 @@
+[
+ {
+  "goto": "/?pad=0"
+ },
+ {
+  "waitFor": "window.__mm",
+  "timeout": 60000
+ },
+ {
+  "wait": 2500
+ },
+ {
+  "eval": "(window.__mm.debug.newGame('Cut Above Lawn Co.'), 'ok')"
+ },
+ {
+  "wait": 2000
+ },
+ {
+  "shot": "out/p02_hub.png"
+ },
+ {
+  "eval": "(window.__mm.debug.goto('hood','home.maple'), 'ok')"
+ },
+ {
+  "wait": 9000
+ },
+ {
+  "shot": "out/p03_hood.png"
+ },
+ {
+  "clickSel": "[data-act=tutorial]"
+ },
+ {
+  "wait": 1500
+ },
+ {
+  "shot": "out/p04_hood_rose.png"
+ },
+ {
+  "clickSel": "[data-act=knock]"
+ },
+ {
+  "wait": 3500
+ },
+ {
+  "shot": "out/p05_pitch_open.png"
+ },
+ {
+  "key": "1"
+ },
+ {
+  "wait": 1200
+ },
+ {
+  "shot": "out/p06_pitch_opener.png"
+ },
+ {
+  "key": "Enter"
+ },
+ {
+  "wait": 1200
+ },
+ {
+  "shot": "out/p07_pitch_offer.png"
+ },
+ {
+  "key": "Enter"
+ },
+ {
+  "wait": 2000
+ },
+ {
+  "shot": "out/p08_pitch_after_offer.png"
+ },
+ {
+  "eval": "JSON.stringify({clients: window.__mm.store.state.clients.length, min: window.__mm.store.state.owner.minute, tut: window.__mm.store.state.flags.tutorial})"
+ },
+ {
+  "key": "a"
+ },
+ {
+  "wait": 1500
+ },
+ {
+  "shot": "out/p09_pitch_deal.png"
+ },
+ {
+  "key": "Enter"
+ },
+ {
+  "wait": 1500
+ },
+ {
+  "eval": "JSON.stringify({clients: window.__mm.store.state.clients.map(c=>({p:c.price,f:c.freq,s:c.satisfaction,due:c.nextDueDay})), min: window.__mm.store.state.owner.minute, tut: window.__mm.store.state.flags.tutorial})"
+ },
+ {
+  "shot": "out/p10_hood_after.png"
+ },
+ {
+  "clickSel": "[data-act=mow]"
+ },
+ {
+  "wait": 8000
+ },
+ {
+  "shot": "out/p11_mow_start.png"
+ },
+ {
+  "eval": "(document.querySelector('.mow-start button, [data-mow=start], .mow-btn-start') ? (document.querySelector('.mow-start button, [data-mow=start], .mow-btn-start').click(), 'clicked') : 'nostart')"
+ },
+ {
+  "wait": 1500
+ },
+ {
+  "hold": "w",
+  "ms": 2500
+ },
+ {
+  "hold": "d",
+  "ms": 600
+ },
+ {
+  "hold": "w",
+  "ms": 2000
+ },
+ {
+  "shot": "out/p12_mow_driving.png"
+ },
+ {
+  "eval": "(window.__mmJob.job.autoMow(2), window.__mmJob.job.fastForward(400), 'ff')"
+ },
+ {
+  "wait": 2500
+ },
+ {
+  "shot": "out/p13_mow_after_auto.png"
+ },
+ {
+  "eval": "(window.__mmJob.job.selectTool(2), window.__mmJob.job.trimAllEdges && window.__mmJob.job.trimAllEdges(), 'trim')"
+ },
+ {
+  "wait": 1500
+ },
+ {
+  "shot": "out/p14_mow_trimmed.png"
+ },
+ {
+  "eval": "(window.__mmJob.job.setCamera('top'), 'top')"
+ },
+ {
+  "wait": 1500
+ },
+ {
+  "shot": "out/p15_mow_top.png"
+ },
+ {
+  "eval": "(window.__mmJob.job.finishNow(), 'fin')"
+ },
+ {
+  "wait": 4000
+ },
+ {
+  "shot": "out/p16_result.png"
+ },
+ {
+  "eval": "JSON.stringify({cash: window.__mm.store.state.cash, min: window.__mm.store.state.owner.minute, c: window.__mm.store.state.clients.map(c=>({q:c.lastQ,s:c.satisfaction,best:c.bestManualQ})), tut: window.__mm.store.state.flags.tutorial, xp: window.__mm.store.state.owner.xp})"
+ },
+ {
+  "eval": "(window.__mm.debug.endDay(), 'end')"
+ },
+ {
+  "wait": 3000
+ },
+ {
+  "shot": "out/p17_report.png"
+ }
+]

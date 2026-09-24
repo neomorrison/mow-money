@@ -66,7 +66,7 @@ export function newGame(opts: { companyName: string; color: string; seed?: numbe
   refreshCandidates(state, rng);
   // The neighbor: a warm lead with a shaggy lawn.
   generateHood(seed, 'home', 'maple');
-  state.houses[TUTORIAL_HOUSE] = { id: TUTORIAL_HOUSE, h: 5.0, hDay: 0, leadUntil: 7, leadTrust: 0.3 };
+  state.houses[TUTORIAL_HOUSE] = { id: TUTORIAL_HOUSE, h: 4.2, hDay: 0, leadUntil: 7, leadTrust: 0.3 };
   state.rng = rng.state() >>> 0;
   return state;
 }

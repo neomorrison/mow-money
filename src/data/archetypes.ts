@@ -152,6 +152,24 @@ export const ARCHETYPES: ArchetypeSpec[] = [
 
 export const ARCHETYPE_BY_ID: Record<string, ArchetypeSpec> = Object.fromEntries(ARCHETYPES.map((a) => [a.id, a]));
 
+// Names by portrait gender so a name always matches the face on the door (see PORTRAIT_GENDER).
+export const FEMALE_NAMES = [
+  'Rose', 'Linda', 'Maria', 'Jess', 'Victoria', 'Priya', 'Aisha', 'Diane', 'Elena', 'Grace', 'Nina', 'Carmen',
+  'Mei', 'Beth', 'Joan', 'Rita', 'Sara', 'Yuki', 'Lena', 'Ruth', 'Ada', 'Irene', 'Leah', 'Tamsin', 'Gloria',
+  'Hana', 'Olivia', 'Nadia', 'June', 'Patrice',
+];
+export const MALE_NAMES = [
+  'Harold', 'Gus', 'Dev', 'Brett', 'Walt', 'Chad', 'Tom', 'Ken', 'Marcus', 'Frank', 'Omar', 'Ray', 'Hank',
+  'Luis', 'Andre', 'Theo', 'Kofi', 'Dale', 'Pete', 'Hector', 'Vince', 'Jamal', 'Stan', 'Rafael', 'Arjun',
+  'Mateo', 'Glen', 'Ivan', 'Curtis', 'Jin',
+];
+export function firstNameFor(gender: 'f' | 'm' | 'couple' | undefined, pick: <T>(a: readonly T[]) => T): string {
+  if (gender === 'f') return pick(FEMALE_NAMES);
+  if (gender === 'm') return pick(MALE_NAMES);
+  if (gender === 'couple') return `${pick(FEMALE_NAMES)} and ${pick(MALE_NAMES)}`;
+  return pick(FIRST_NAMES);
+}
+
 export const FIRST_NAMES = [
   'Rose', 'Harold', 'Linda', 'Gus', 'Maria', 'Dev', 'Brett', 'Walt', 'Jess', 'Sam', 'Victoria', 'Chad',
   'Priya', 'Tom', 'Aisha', 'Ken', 'Diane', 'Marcus', 'Elena', 'Frank', 'Grace', 'Omar', 'Nina', 'Ray',

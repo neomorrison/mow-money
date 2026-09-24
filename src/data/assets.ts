@@ -42,6 +42,16 @@ export const PORTRAIT_KEYS = [
   'p_facilities_1', 'p_parks_1', 'p_greenskeeper_1',
 ] as const;
 
+// Who is in each portrait, so generated names match (checked by eye against the images).
+export const PORTRAIT_GENDER: Record<string, 'f' | 'm' | 'couple'> = {
+  p_retiree_1: 'm', p_retiree_2: 'f', p_perfectionist_1: 'm', p_perfectionist_2: 'f', p_family_1: 'f', p_family_2: 'm',
+  p_penny_1: 'm', p_penny_2: 'f', p_hoa_1: 'f', p_hoa_2: 'm', p_techie_1: 'm', p_techie_2: 'f', p_gardener_1: 'f',
+  p_gardener_2: 'm', p_eco_1: 'f', p_eco_2: 'm', p_landlord_1: 'm', p_landlord_2: 'f', p_dude_1: 'm', p_dude_2: 'm',
+  p_veteran_1: 'm', p_veteran_2: 'm', p_newcouple_1: 'couple', p_newcouple_2: 'couple', p_executive_1: 'm',
+  p_executive_2: 'f', p_facilities_1: 'm', p_parks_1: 'f', p_greenskeeper_1: 'm',
+  s_1: 'm', s_2: 'f', s_3: 'm', s_4: 'f', s_5: 'm', s_6: 'm', s_7: 'f', s_8: 'm', s_9: 'm', s_10: 'f',
+};
+
 // staff candidates (public/img/staff/<key>.webp, 512x512)
 export const STAFF_PORTRAIT_KEYS = [
   's_1', 's_2', 's_3', 's_4', 's_5', 's_6', 's_7', 's_8', 's_9', 's_10',

@@ -6,7 +6,8 @@ import type {
 } from '../core/types';
 import { hashSeed, makeRng, clamp } from '../core/rng';
 import { HOODS, HOOD_BY_ID, TOWNS, TOWN_BY_ID, hoodKey, splitHoodKey } from '../data/hoods';
-import { ARCHETYPES, ARCHETYPE_BY_ID, FIRST_NAMES, LAST_NAMES, STREET_NAMES } from '../data/archetypes';
+import { ARCHETYPES, ARCHETYPE_BY_ID, LAST_NAMES, STREET_NAMES, firstNameFor } from '../data/archetypes';
+import { PORTRAIT_GENDER } from '../data/assets';
 import { generateProperty, lotForLawn } from '../world/property';
 import { EQUIPMENT_BY_ID } from '../data/equipment';
 import { fairPrice, toSqft } from './pricing';
@@ -85,15 +86,16 @@ export function generateHood(seed: number, townId: string, hoodId: string): Hous
     lawnM2 = Math.round(lawnM2);
     hardscapeM2 = Math.round(hardscapeM2);
 
+    // Portrait first, then a name that matches the person in it.
+    const portrait = tutorial ? 'p_retiree_2' : rng.pick(arch.portraits);
     let ownerName = 'Rose Albright';
     if (!tutorial) {
       for (let tries = 0; tries < 8; tries++) {
-        ownerName = `${rng.pick(FIRST_NAMES)} ${rng.pick(LAST_NAMES)}`;
-        if (!usedNames.has(ownerName) && ownerName !== 'Rose Albright') break;
+        ownerName = `${firstNameFor(PORTRAIT_GENDER[portrait], rng.pick)} ${rng.pick(LAST_NAMES)}`;
+        if (!usedNames.has(ownerName) && !ownerName.startsWith('Rose ')) break;
       }
     }
     usedNames.add(ownerName);
-    const portrait = tutorial ? arch.portraits[0] : rng.pick(arch.portraits);
     const wealth = rng.range(hood.wealth[0], hood.wealth[1]) * arch.wealthMult;
     const fair = fairPrice(lawnM2, 7, kind);
     const V = fair * wealth * arch.needMult * rng.logNormal(0, 0.08);
