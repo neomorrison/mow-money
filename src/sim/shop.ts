@@ -167,6 +167,24 @@ export function repair(state: GameState, uid: Id): ActionResult {
   return { ok: true, message: 'Repaired.' };
 }
 
+/** Winter overhaul (section 18): repair every worn item at the winter rate (half the repair cost). */
+export function winterOverhaul(state: GameState): ActionResult {
+  if (calendar(state.day).season !== 'winter') return { ok: false, message: 'Overhauls happen in winter.' };
+  const worn = state.items.filter((i) => i.condition < 0.98 || i.broken).sort((a, b) => a.condition - b.condition);
+  if (!worn.length) return { ok: true, message: 'Nothing needed work.' };
+  let fixed = 0;
+  let spent = 0;
+  for (const it of worn) {
+    const cost = repairCost(state, it);
+    if (state.cash < cost) continue;
+    const r = repair(state, it.uid);
+    if (r.ok) { fixed++; spent += cost; }
+  }
+  if (!fixed) return { ok: false, message: 'Not enough cash.' };
+  const left = worn.length - fixed;
+  return { ok: true, message: `${fixed} ${fixed === 1 ? 'item' : 'items'} overhauled for $${spent}.${left ? ` ${left} left, not enough cash.` : ''}` };
+}
+
 export function equipOwner(state: GameState, uid: Id): ActionResult {
   const item = itemByUid(state, uid);
   if (!item) return { ok: false, message: 'Unknown item.' };

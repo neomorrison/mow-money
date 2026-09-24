@@ -153,6 +153,29 @@ describe('morning, tips and small talk', () => {
   });
 });
 
+describe('daily goals', () => {
+  it('rolls three goals each morning and pays for finished ones', () => {
+    const s = sim.newGame({ companyName: 'Goals', color: '#3a3', seed: 31 });
+    expect(s.goals?.day).toBe(0);
+    expect(s.goals?.list.map((g) => g.kind)).toEqual(['deals', 'knocks', 'stripes']);
+    const knockGoal = s.goals!.list.find((g) => g.kind === 'knocks')!;
+    const cash = s.cash;
+    let n = 0;
+    for (const h of sim.housesInHood(s, 'home.maple')) {
+      if (n >= knockGoal.target) break;
+      if (!h.canKnock || h.info.id === sim.TUTORIAL_HOUSE) continue;
+      if (sim.knock(s, h.info.id).ok) n++;
+    }
+    expect(knockGoal.done).toBe(true);
+    expect(s.cash).toBeCloseTo(cash + knockGoal.reward, 2);
+    sim.endDay(s);
+    expect(s.goals?.day).toBe(1);
+    expect(s.goals?.list.length).toBe(3);
+    expect(new Set(s.goals!.list.map((g) => g.kind)).size).toBe(3);
+    invariants(s);
+  });
+});
+
 describe('save migration', () => {
   it('lifts old contract prices and wages to the new economy once', () => {
     const s = sim.newGame({ companyName: 'Old', color: '#3a3', seed: 5 });

@@ -348,6 +348,20 @@ export interface GameState {
   flags: Record<string, number | boolean | string>;
   legacy: { points: number; perks: string[]; runs: number };
   nextId: number;
+  // ---- added: daily goals (optional so older saves load)
+  goals?: { day: number; list: DailyGoal[]; sweep: boolean };
+}
+
+export type GoalKind = 'knocks' | 'deals' | 'jobs' | 'quality' | 'tips' | 'stripes' | 'charm' | 'earn';
+export interface DailyGoal {
+  kind: GoalKind;
+  label: string;
+  target: number;
+  base: number;             // running total at dawn (progress = now - base)
+  progress: number;
+  reward: number;           // cash
+  xp: number;
+  done: boolean;
 }
 
 // ---------------------------------------------------------------- job tickets (UI view of work due)

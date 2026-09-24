@@ -45,13 +45,14 @@ export { computeQuality, stripeBonus } from './quality';
 // ---------------------------------------------------------------- door to door
 export { knock, applyPitchOutcome, answerChance, knockMinutes, pitchContext } from './knock';
 export { smallTalk, canSmallTalk, TONES } from './smalltalk';
+export { ensureGoals, checkGoals, sweepBonus } from './goals';
 
 // ---------------------------------------------------------------- clients
 export function clientById(state: GameState, clientId: Id): Client | undefined { return state.clients.find((c) => c.id === clientId); }
 export { churnRiskWeekly, changePrice, changeService, dropClient, askForYardSign, hWeek } from './clients';
 
 // ---------------------------------------------------------------- equipment
-export { shop, buy, sell, resaleValue, sharpen, repair, repairCost, equipOwner, bookValue } from './shop';
+export { shop, buy, sell, resaleValue, sharpen, repair, repairCost, equipOwner, bookValue, winterOverhaul } from './shop';
 
 // ---------------------------------------------------------------- staff and crews
 export { marketWage, hire, fire, setWage, postJobAd, assignSalesHood, ROLE_LABEL, TRAITS } from './staff';

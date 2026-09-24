@@ -120,6 +120,50 @@ function kitCard(s: GameState): Raw {
   </div>`;
 }
 
+const UPGRADE_PATH = ['push21', 'trimmer', 'blower', 'selfprop', 'stripekit', 'pickup', 'walkbehind', 'pickup_trailer', 'zt48',
+  'protrimmer', 'backpack', 'sharpener', 'standon', 'zt60', 'crewtruck', 'widearea', 'boxtruck', 'gangreel'];
+
+/** The next sensible purchase with a progress bar toward it. */
+function nextUpgradeCard(s: GameState): Raw | string {
+  const shop = safe(() => sim.shop(s), []);
+  const bestTier = (cat: string) => Math.max(-1, ...s.items.map((i) => EQUIPMENT_BY_ID[i.specId]).filter((sp) => sp && sp.category === cat).map((sp) => sp.tier));
+  const next = UPGRADE_PATH.map((id) => shop.find((e) => e.spec.id === id)).find((e) => {
+    if (!e || e.reason) return false;
+    if (e.spec.category === 'addon') return e.owned === 0;
+    return e.owned === 0 && e.spec.tier > bestTier(e.spec.category);
+  });
+  if (!next) return '';
+  const p = clamp(s.cash / Math.max(1, next.price), 0, 1);
+  return html`<div class="ui-card ui-card--flat">
+    <div class="ui-card__head"><span class="ui-card__title">${raw(icon('trend'))}Next upgrade</span><button class="ui-link" data-click="nav" data-id="garage">Garage</button></div>
+    <div class="ui-strong">${next.spec.name}</div>
+    <div class="ui-tiny ui-muted" style="margin:2px 0 8px">${next.spec.blurb}</div>
+    ${bar(p, { color: p >= 1 ? 'var(--ui-g-500)' : 'var(--ui-sun-500)' })}
+    <div class="ui-row ui-small" style="justify-content:space-between;margin-top:4px"><span class="ui-strong ui-num">${money(Math.max(0, s.cash))} of ${money(next.price)}</span>
+      ${p >= 1 ? html`<button class="ui-btn ui-btn--sm ui-btn--go" data-click="nav" data-id="garage">${raw(icon('cash'))}Buy</button>` : html`<span class="ui-muted">${money(next.price - Math.max(0, s.cash))} to go</span>`}</div>
+  </div>`;
+}
+
+/** Today's three goals with progress and rewards. */
+function goalsCard(s: GameState): Raw | string {
+  const g = s.goals;
+  if (!g || g.day !== s.day || !g.list.length) return '';
+  const left = g.list.filter((x) => !x.done).length;
+  return html`<div class="ui-card ui-card--sun ui-goals">
+    <div class="ui-card__head"><span class="ui-card__title">${raw(icon('target'))}Today's goals</span><span class="ui-small ui-strong">${left ? `${g.list.length - left} of ${g.list.length}` : 'All done'}</span></div>
+    <div class="ui-col" style="gap:10px">
+      ${g.list.map((x) => html`<div class="ui-goal ${x.done ? 'is-done' : ''}">
+        <span class="ui-goal__ic">${raw(icon(x.done ? 'check' : 'target'))}</span>
+        <div class="ui-grow"><div class="ui-small ui-strong">${x.label}</div>
+          ${x.done ? '' : html`<div class="ui-row" style="gap:8px"><div class="ui-grow">${bar(x.progress / Math.max(1, x.target), { cls: 'ui-bar--thin', color: 'var(--ui-sun-600)' })}</div><span class="ui-tiny ui-num ui-strong">${x.kind === 'tips' || x.kind === 'earn' ? money(x.progress) : x.progress} / ${x.kind === 'tips' || x.kind === 'earn' ? money(x.target) : x.target}</span></div>`}
+        </div>
+        <span class="ui-chip ${x.done ? '' : 'ui-chip--sun'}">+${money(x.reward)}</span>
+      </div>`)}
+    </div>
+    <div class="ui-tiny ui-muted" style="margin-top:10px">${g.sweep ? 'Clean sweep bonus earned.' : html`Clear all three for a ${money(safe(() => sim.sweepBonus(s), 0))} bonus.`}</div>
+  </div>`;
+}
+
 function render(): Raw {
   const s = store.state;
   const cal = calSafe(s.day);
@@ -201,6 +245,7 @@ function render(): Raw {
     </section>
 
     <aside class="ui-hub-side">
+      ${goalsCard(s)}
       <div class="ui-card ui-card--flat">
         <div class="ui-card__head"><span class="ui-card__title">${raw(icon('sun'))}Forecast</span>${s.weather?.drought ? html`<span class="ui-chip ui-chip--orange">Drought</span>` : ''}</div>
         <div class="ui-forecast">
@@ -224,6 +269,7 @@ function render(): Raw {
       </div>` : ''}
 
       ${kitCard(s)}
+      ${nextUpgradeCard(s)}
 
       <div class="ui-card ui-card--flat ui-clockcard">
         <div class="ui-row"><span class="ui-card__title" style="font-size:17px">${raw(icon('clock'))}${clock(s.owner.minute)}</span><span class="ui-grow"></span><span class="ui-small ui-muted">${left > 0 ? `${duration(left)} left` : 'Day is over'}</span></div>
@@ -260,21 +306,7 @@ export const hubScreen: Screen = {
     skipWinter: () => { void skipWinterFlow(); },
     layoff: (el) => act(() => sim.winterLayoff(store.state, el.dataset.on === '1')),
     overhaul: () => {
-      const s = store.state;
-      const fn = (sim as unknown as Record<string, unknown>).winterOverhaul as ((st: GameState) => { ok: boolean; message: string }) | undefined;
-      if (typeof fn === 'function') { act(() => fn(s)); return; }
-      let fixed = 0;
-      let lastMsg = '';
-      for (const it of s.items) {
-        if (it.condition < 0.98) {
-          try {
-            const r = sim.repair(s, it.uid);
-            if (r.ok) fixed++; else lastMsg = r.message;
-          } catch { /* ignore */ }
-        }
-      }
-      store.commit();
-      toast(fixed ? `${plural(fixed, 'item')} overhauled.` : lastMsg || 'Nothing needed work.', fixed ? 'good' : 'info');
+      act(() => sim.winterOverhaul(store.state));
     },
   },
 };

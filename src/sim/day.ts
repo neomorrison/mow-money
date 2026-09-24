@@ -15,6 +15,7 @@ import { payLoans, payInsurance, isOperating } from './finance';
 import { rollEvents } from './events';
 import { checkAchievements } from './achievements';
 import { checkUnlocks, houseInfo, hs } from './world';
+import { ensureGoals } from './goals';
 
 function emptyReport(state: GameState): DayReport {
   const cal = calendar(state.day);
@@ -219,6 +220,7 @@ export function endDay(state: GameState): DayReport {
   state.owner.minute = DAY_START;
   state.owner.location = 'hq';
   state.owner.jobsToday = 0;
+  ensureGoals(state);
   report.achievements = checkAchievements(state);
   return report;
 }

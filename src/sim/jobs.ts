@@ -23,6 +23,7 @@ import { addXp } from './owner';
 import { reactionLine, moodFor, DAMAGE_THING } from './reactions';
 import { wearItem } from './shop';
 import { checkAchievements, ACHIEVEMENT_BY_ID } from './achievements';
+import { checkGoals } from './goals';
 
 // ---------------------------------------------------------------- tickets
 export function isDue(state: GameState, c: Client, day = state.day): boolean {
@@ -374,6 +375,8 @@ export function completeManualJob(state: GameState, spec: MowJobSpec, result: Mo
       stripes: result.stripe >= 0.6,
     });
     if (streak >= 3) events.push(`Hot streak: ${streak} great jobs in a row.`);
+    if (result.stripe >= 0.7) state.flags.stripeJobs = (Number(state.flags.stripeJobs) || 0) + 1;
+    for (const g of checkGoals(state)) events.push(`Goal complete: ${g}`);
     return {
       clientId: c.id, q, breakdown, paid: svc.paid, tip: svc.tip, satisfactionBefore: svc.sBefore, satisfactionAfter: svc.sAfter,
       reaction, mood, xp, minutes, fuelCost, damageCost, trialResult: svc.trialResult, events,
@@ -477,6 +480,7 @@ export function autopilotJob(state: GameState, clientId: Id): JobOutcome | { err
     const events = [...svc.events];
     if (levels > 0) events.push(`Level up. You are now level ${state.owner.level}.`);
     events.push(...achievementsEvents(state));
+    for (const g of checkGoals(state)) events.push(`Goal complete: ${g}`);
     const mood = moodFor(q, c.expectation, 0);
     const reaction = reactionLine(rng, { mood, archetypeId: info.archetypeId, firstName: firstName(info.ownerName) });
     const parts = [{ label: 'Autopilot', value: q, max: 100 }];

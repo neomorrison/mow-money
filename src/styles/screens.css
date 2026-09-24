@@ -415,3 +415,10 @@
 .ui-person__wage { flex-wrap: wrap; row-gap: 8px; }
 .ui-person__wage > .ui-grow { flex-basis: 100%; }
 .ui-person__wage .ui-money-input { flex: 1; width: auto !important; }
+
+/* daily goals */
+.ui-goal { display: flex; align-items: center; gap: 10px; }
+.ui-goal__ic { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: rgba(255, 255, 255, 0.75); color: var(--ui-sun-600); flex: none; }
+.ui-goal__ic .ui-icon { width: 18px; height: 18px; }
+.ui-goal.is-done .ui-goal__ic { background: var(--ui-g-500); color: #fff; }
+.ui-goal.is-done .ui-small { text-decoration: line-through; opacity: 0.7; }

@@ -10,6 +10,7 @@ import { PLAYER_SMALLTALK, SMALLTALK, SMALLTALK_GENERIC } from '../data/smalltal
 import { RAPPORT_START } from './constants';
 import { addLedger, firstName, hasPerk, logDay, r1, r2, withRng } from './util';
 import { houseInfo } from './world';
+import { checkGoals } from './goals';
 
 export const TONES: Tone[] = ['friendly', 'professional', 'direct', 'funny'];
 
@@ -53,7 +54,10 @@ export function smallTalk(state: GameState, clientId: Id, tone: Tone): SmallTalk
     const ds = reaction === 'liked' ? 2 : reaction === 'disliked' ? -2 : 0;
     c.satisfaction = r1(clamp(c.satisfaction + ds, 0, 100));
     c.talkDay = state.day;
-    if (reaction === 'liked') c.likedTone = tone;
+    if (reaction === 'liked') {
+      c.likedTone = tone;
+      state.flags.likedTalks = (Number(state.flags.likedTalks) || 0) + 1;
+    }
     if (tip > 0) {
       addLedger(state, tip, 'tip', `Tip, ${info.address}`);
       c.tips = r2(c.tips + tip);
@@ -65,6 +69,7 @@ export function smallTalk(state: GameState, clientId: Id, tone: Tone): SmallTalk
         if (j) j.paid = r2(j.paid + tip);
       });
     }
+    checkGoals(state);
     const message = reaction === 'liked' ? (tip > 0 ? `Charm tip: $${tip.toFixed(2)}` : 'They liked that.')
       : reaction === 'disliked' ? 'That fell flat.' : tip > 0 ? `Tip: $${tip.toFixed(2)}` : 'Polite enough.';
     return { ok: true, message, playerLine, reply, reaction, tip, rapport: c.rapport, satisfaction: c.satisfaction };

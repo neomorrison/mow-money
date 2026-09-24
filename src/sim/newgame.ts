@@ -9,6 +9,7 @@ import { makeRivals } from './market';
 import { refreshCandidates } from './staff';
 import { TUTORIAL_HOUSE, generateHood } from './world';
 import { LEGACY_PERKS } from './legacy';
+import { ensureGoals } from './goals';
 
 function item(uid: string, specId: string, day: number): OwnedItem {
   return { uid, specId, sharpness: 1, condition: 1, hours: 0, boughtDay: day, paid: 0, crewId: null };
@@ -68,6 +69,7 @@ export function newGame(opts: { companyName: string; color: string; seed?: numbe
   generateHood(seed, 'home', 'maple');
   state.houses[TUTORIAL_HOUSE] = { id: TUTORIAL_HOUSE, h: 4.2, hDay: 0, leadUntil: 7, leadTrust: 0.3 };
   state.rng = rng.state() >>> 0;
+  ensureGoals(state);
   return state;
 }
 
@@ -133,5 +135,6 @@ export function migrate(state: GameState): GameState {
     state.owner.vehicleUid = v.uid;
   }
   state.v = SAVE_VERSION;
+  ensureGoals(state);
   return state;
 }

@@ -17,6 +17,7 @@ import {
 import { ownerKit } from './kit';
 import { addXp } from './owner';
 import { checkAchievements } from './achievements';
+import { checkGoals } from './goals';
 
 export function knockMinutes(state: GameState): number {
   let m = hasPerk(state, 'door_pro') ? 2 : 4;
@@ -109,6 +110,7 @@ export function knock(state: GameState, houseId: Id): KnockResult {
   const answered = withRng(state, (rng) => rng.chance(p));
   advanceTutorialKnocks(state);
   checkAchievements(state);
+  checkGoals(state);
   const minutes = travel + km;
   if (!answered) {
     return { ok: true, answered: false, minutes, message: 'No one answered.', context: null };
@@ -174,6 +176,7 @@ export function applyPitchOutcome(state: GameState, houseId: Id, outcome: PitchO
     logDay(state, (l) => l.newClients.push({ address: info.address, price, by: outcome.result === 'trial' ? 'You (trial)' : 'You' }));
     checkUnlocks(state);
     checkAchievements(state);
+    checkGoals(state);
     const msg = outcome.result === 'trial' ? `Trial booked with ${info.ownerName}.` : `${info.ownerName} signed at $${price.toFixed(2)}.`;
     return { ok: true, message: msg, client: c };
   }
