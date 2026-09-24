@@ -128,8 +128,11 @@ export class Hud {
     const qc = el('div', 'mmj-card mmj-q');
     const row = el('div', 'row');
     const left = el('div');
-    left.append(el('div', 'lbl', 'Quality'), this.q.big, this.q.track);
-    row.append(left, this.q.stars);
+    left.append(el('div', 'lbl', 'Quality'), this.q.big);
+    // the projection sits under the stars so the card height never changes
+    const side = el('div', 'side');
+    side.append(this.q.stars, this.q.track);
+    row.append(left, side);
     qc.append(row, this.q.bars);
     for (const [key, label] of [['cov', 'Coverage'], ['trim', 'Edges'], ['stripe', 'Stripes'], ['clean', 'Cleanup']] as const) {
       const b = el('div', 'mmj-bar');
@@ -198,7 +201,9 @@ export class Hud {
     this.prompt.style.cursor = 'pointer';
 
     const joyHint = el('div', 'mmj-joyhint', 'Drag here to drive');
-    this.ui.append(client, this.clockBox, qc, mm, st, btns, this.toasts, this.hint, this.prompt, joyHint);
+    const rightCol = el('div', 'mmj-right');
+    rightCol.append(qc, mm);
+    this.ui.append(client, this.clockBox, rightCol, st, btns, this.toasts, this.hint, this.prompt, joyHint);
     this.root.append(this.ui, this.joyEl, this.flashEl, this.modal, this.loading);
     if (spec.weather === 'heat') this.root.insertBefore(el('div', 'mmj-heat'), this.ui);
     host.appendChild(this.root);
