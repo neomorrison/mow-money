@@ -19,7 +19,7 @@ import { rerender } from '../app';
 const ARCH: Record<string, { label: string; flavor: string }> = Object.fromEntries(ARCHETYPES.map((a) => [a.id, { label: a.label, flavor: a.flavor }]));
 const ADDONS: { id: AddOn; label: string; pct: number; blurb: string; icon: string }[] = [
   { id: 'bagging', label: 'Bagging', pct: 12, blurb: 'Clippings collected', icon: 'bag' },
-  { id: 'stripes', label: 'Premium stripes', pct: 10, blurb: 'Expects a stripe score of 0.7', icon: 'stripes' },
+  { id: 'stripes', label: 'Premium stripes', pct: 10, blurb: 'Bigger stripe bonus. They notice when there are no stripes', icon: 'stripes' },
   { id: 'fertilizer', label: 'Fertilizer program', pct: 8, blurb: 'Faster growth, happier gardeners', icon: 'leaf' },
 ];
 

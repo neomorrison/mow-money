@@ -112,6 +112,8 @@
   font-size: 22px;
   font-weight: 700;
   display: flex;
+  flex-wrap: wrap;
+  row-gap: 8px;
   align-items: center;
   gap: 10px;
   margin: 26px 0 12px;

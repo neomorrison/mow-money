@@ -10,6 +10,7 @@ import { refreshCandidates } from './staff';
 import { TUTORIAL_HOUSE, generateHood } from './world';
 import { LEGACY_PERKS } from './legacy';
 import { ensureGoals } from './goals';
+import { reputation } from './reputation';
 
 function item(uid: string, specId: string, day: number): OwnedItem {
   return { uid, specId, sharpness: 1, condition: 1, hours: 0, boughtDay: day, paid: 0, crewId: null };
@@ -50,7 +51,7 @@ export function newGame(opts: { companyName: string; color: string; seed?: numbe
     days: [],
     stats: { jobs: 0, manualJobs: 0, revenue: 0, bestQ: 0, perfectJobs: 0, deals: 0, knocks: 0, m2Mowed: 0, peakClients: 0, damages: 0 },
     achievements: [],
-    flags: { tutorial: 1, econ2: 1 },
+    flags: { tutorial: 1, econ2: 1, repDawn: 3 },
     legacy: { points: opts.legacyPoints ?? 0, perks, runs: opts.runs ?? 0 },
     nextId: 10,
   };
@@ -58,6 +59,7 @@ export function newGame(opts: { companyName: string; color: string; seed?: numbe
   // Legacy perks.
   if (perks.includes('seed_money')) state.cash += 1500;
   if (perks.includes('local_legend')) state.ratings = Array(10).fill(4.5);
+  state.flags.repDawn = reputation(state);
   if (perks.includes('head_start')) state.owner.skillPoints += 1;
   if (perks.includes('gas_start')) {
     state.items.push(item('i5', 'push21', 0));

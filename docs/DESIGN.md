@@ -99,7 +99,7 @@ patience   = archetype.patience + {-1, 0, +1}                negotiation rounds
 anchor     = archetype.anchor + U(-0.05, 0.05)               opening counter as a fraction of R
 ```
 
-Answer probability when you knock depends on the archetype's `home` profile (day 08:00 to 17:00, evening 17:00 to 19:30) and on weekends (x1.3, capped at 0.95). Warm leads answer at least 85 percent of the time. Doors can be knocked from 07:30: before 08:30 the chance is x0.6, from 08:30 to 09:00 x0.85. A knock costs 4 minutes (2 with the Door Pro perk).
+Answer probability when you knock depends on the archetype's `home` profile (day 08:00 to 17:00, evening 17:00 to 19:30) and on weekends (x1.3, capped at 0.95). Warm leads answer at least 85 percent of the time. Doors can be knocked from 07:30: before 08:30 the chance is x0.75, from 08:30 to 09:00 x0.9. A knock costs 4 minutes (2 with the Door Pro perk).
 
 Not everyone who opens the door wants a service. Before the pitch starts, a DIY owner turns you away with `pNo = clamp(0.65 - 0.12 * (h - 3), 0.10, 0.70)` where `h` is their grass height (tall lawns are the best prospects), a rival's client with 0.40 (budget rival) or 0.55 (premium rival), and warm leads or HOA-letter houses with 0.05. About 30 percent of DIY households love mowing their own lawn and refuse with 0.97 whatever the grass height and stay cold for 10 days (a referral lead still gets through). Any other refusal makes the house cold for 3 days. A rejected pitch blocks a second pitch the same day.
 

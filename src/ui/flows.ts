@@ -369,10 +369,31 @@ export async function endDayFlow(): Promise<void> {
 }
 
 export async function skipWinterFlow(): Promise<void> {
+  const s = store.state;
+  // What the rest of winter costs: wages on workdays for staff still on payroll, loans and insurance on Mondays.
+  const cal = calSafe(s.day);
+  let workdays = 0;
+  let mondays = 0;
+  for (let d = s.day; calSafe(d).season === 'winter' && d < s.day + 30; d++) {
+    const c = calSafe(d);
+    if (c.isWorkday) workdays++;
+    if (c.weekday === 6) mondays++;      // the week's bills are paid as a new week starts
+  }
+  void cal;
+  const payroll = s.staff.filter((e) => !e.laidOff);
+  const wages = payroll.reduce((a, e) => a + e.wage * 10, 0) * workdays;
+  const weekly = s.loans.reduce((a, l) => a + l.weeklyPayment, 0) + (s.insured ? safe(() => sim.insuranceWeekly(s), 0) : 0);
+  const cost = Math.round(wages + weekly * mondays);
+  const short = s.cash - cost < 0;
   const ok = await confirmDialog({
     title: 'Skip to spring?',
-    body: 'Fixed weekly costs (loans, insurance, staff on payroll) are still paid for every week of winter.',
-    ok: 'Skip to spring',
+    body: html`<div class="ui-col" style="gap:10px">
+      <p class="ui-modal__body">Winter still costs about <b>${money(cost)}</b>: ${payroll.length ? `wages for ${payroll.length} on payroll, ` : ''}loans and insurance. You have ${money(s.cash)}.</p>
+      ${short ? html`<div class="ui-note ui-note--bad">${raw(icon('alert'))}That would leave you ${money(s.cash - cost)} and overdraft fees start.${payroll.length ? ' Lay staff off for the winter first: laid-off staff cost nothing and most come back.' : ''}</div>` : ''}
+      ${!short && payroll.length ? html`<p class="ui-small ui-muted">Laying staff off for the winter saves ${money(Math.round(wages))}. Most come back in spring.</p>` : ''}
+    </div>`,
+    ok: short ? 'Skip anyway' : 'Skip to spring',
+    danger: short,
   });
   if (!ok) return;
   let report;

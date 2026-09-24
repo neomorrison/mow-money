@@ -6,8 +6,8 @@ export const DAY_START = 450;          // 07:30
 export const DAY_END = 1170;           // 19:30
 export const SETUP_MINUTES = 6;
 export const KNOCK_OPEN = 450;         // doors can be knocked from the start of the day
-export const KNOCK_EARLY = 510;        // before 08:30 fewer people answer (x0.6)
-export const KNOCK_MORNING = 540;      // 08:30 to 09:00 a few still sleep in (x0.85)
+export const KNOCK_EARLY = 510;        // before 08:30 fewer people answer (x0.75)
+export const KNOCK_MORNING = 540;      // 08:30 to 09:00 a few still sleep in (x0.9)
 export const EVENING_START = 1020;     // 17:00
 
 export const SEASONS: Season[] = ['spring', 'summer', 'fall', 'winter'];

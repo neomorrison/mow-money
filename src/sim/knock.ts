@@ -34,8 +34,8 @@ export function answerChance(state: GameState, houseId: Id, minute: number): num
   if (hasPerk(state, 'door_pro')) p = Math.min(0.97, p * 1.1);
   if (isLead(state, state.houses[houseId])) p = Math.max(p, 0.85);
   // Early birds: fewer people come to the door before 08:30, a few more by 09:00.
-  if (minute < KNOCK_EARLY) p *= 0.6;
-  else if (minute < KNOCK_MORNING) p *= 0.85;
+  if (minute < KNOCK_EARLY) p *= 0.75;
+  else if (minute < KNOCK_MORNING) p *= 0.9;
   return clamp(p, 0, 0.97);
 }
 

@@ -12,19 +12,20 @@ export const HUD_CSS = `
 .mmj-disp{font-family:'Baloo 2','Nunito',system-ui,sans-serif}
 .mmj-client{position:absolute;top:inherit;left:inherit;display:flex;gap:10px;align-items:center;padding:8px 14px 8px 8px;max-width:min(360px,44vw)}
 .mmj-client{top:max(10px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left))}
-.mmj-av{width:44px;height:44px;border-radius:50%;flex:none;background:#cdeab9;display:grid;place-items:center;font-family:'Baloo 2';font-weight:800;color:#245a31;font-size:18px;overflow:hidden;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.mmj-av{width:44px;height:44px;border-radius:50%;flex:none;background:#cdeab9;display:grid;place-items:center;font-family:'Baloo 2','Nunito',system-ui,sans-serif;font-weight:800;color:#245a31;font-size:18px;overflow:hidden;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.15)}
 .mmj-av img{width:100%;height:100%;object-fit:cover}
-.mmj-client b{display:block;font-family:'Baloo 2';font-weight:700;font-size:17px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mmj-client b{display:block;font-family:'Baloo 2','Nunito',system-ui,sans-serif;font-weight:700;font-size:17px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mmj-client span{display:block;font-size:13px;color:#4b6552;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mmj-clock{position:absolute;top:max(10px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:6px 16px 6px 10px;white-space:nowrap}
-.mmj-clock .t{font-family:'Baloo 2';font-weight:800;font-size:22px;line-height:1}
+.mmj-clock .t{font-family:'Baloo 2','Nunito',system-ui,sans-serif;font-weight:800;font-size:22px;line-height:1}
 .mmj-clock .w{font-size:13px;color:#4b6552;font-weight:700}
 .mmj-clock svg{width:26px;height:26px}
 .mmj-clock.late{background:rgba(255,235,214,.95)}
 .mmj-clock.late .t{color:#c0561e}
 .mmj-q{position:absolute;top:max(10px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));width:188px;padding:10px 12px}
 .mmj-q .row{display:flex;align-items:center;justify-content:space-between;gap:6px}
-.mmj-q .big{font-family:'Baloo 2';font-weight:800;font-size:34px;line-height:.9}
+.mmj-track{font-size:11px;font-weight:800;color:#5c7a44;min-height:13px;white-space:nowrap}
+.mmj-q .big{font-family:'Baloo 2','Nunito',system-ui,sans-serif;font-weight:800;font-size:34px;line-height:.9}
 .mmj-q .lbl{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7c917f}
 .mmj-stars{display:flex;gap:1px}
 .mmj-stars svg{width:17px;height:17px}
@@ -36,7 +37,7 @@ export const HUD_CSS = `
 .mmj-mini{position:absolute;right:max(12px,env(safe-area-inset-right));top:calc(max(10px,env(safe-area-inset-top)) + 150px);padding:6px;width:188px}
 .mmj-mini canvas{display:block;width:100%;border-radius:12px;image-rendering:auto}
 .mmj-status{position:absolute;left:max(12px,env(safe-area-inset-left));bottom:max(10px,env(safe-area-inset-bottom));padding:10px 14px;min-width:230px;display:grid;gap:6px}
-.mmj-status .tool{display:flex;align-items:center;gap:8px;font-family:'Baloo 2';font-weight:700;font-size:17px}
+.mmj-status .tool{display:flex;align-items:center;gap:8px;font-family:'Baloo 2','Nunito',system-ui,sans-serif;font-weight:700;font-size:17px}
 .mmj-status .tool svg{width:24px;height:24px;color:#2f6f3a}
 .mmj-status .kv{display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:#4b6552;gap:10px}
 .mmj-status .kv b{color:#1c3a24}
@@ -80,14 +81,14 @@ export const HUD_CSS = `
 .mmj-modal{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(18,50,27,.35);padding:16px;pointer-events:auto;z-index:5}
 .mmj-modal.show{display:flex;animation:mmjIn .2s ease}
 .mmj-sheet{background:#fffaf0;border-radius:26px;box-shadow:0 20px 60px rgba(18,50,27,.35);width:min(560px,100%);max-height:100%;overflow:auto;padding:22px 24px;position:relative}
-.mmj-sheet h2{margin:0;font-family:'Baloo 2';font-weight:800;font-size:28px;line-height:1.05}
+.mmj-sheet h2{margin:0;font-family:'Baloo 2','Nunito',system-ui,sans-serif;font-weight:800;font-size:28px;line-height:1.05}
 .mmj-sheet h3{margin:16px 0 6px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7c917f}
 .mmj-sheet p{margin:6px 0;color:#4b6552;font-weight:600}
 .mmj-sub{color:#4b6552;font-weight:700;margin-top:2px}
 .mmj-facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
 .mmj-fact{background:#f3faec;border-radius:14px;padding:8px 10px}
 .mmj-fact small{display:block;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#7c917f}
-.mmj-fact b{font-family:'Baloo 2';font-size:18px;font-weight:700}
+.mmj-fact b{font-family:'Baloo 2','Nunito',system-ui,sans-serif;font-size:18px;font-weight:700}
 .mmj-notes{margin:0;padding:0;list-style:none;display:grid;gap:6px}
 .mmj-notes li{background:#fff5d6;border-radius:12px;padding:8px 12px;font-weight:700;color:#5b4a1a}
 .mmj-keys{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px;font-weight:600;color:#4b6552}
@@ -98,7 +99,7 @@ export const HUD_CSS = `
 .mmj-yellow{background:#ffc12e !important;border-color:#e6a100 !important}
 .mmj-menu{display:grid;gap:10px;margin-top:16px}
 .mmj-menu .mmj-b{width:100%;height:56px;font-size:18px}
-.mmj-loading{position:absolute;inset:0;display:grid;place-items:center;background:linear-gradient(#bfe0f2,#e8f4d8);font-family:'Baloo 2';font-weight:800;font-size:22px;color:#245a31;z-index:4;transition:opacity .4s}
+.mmj-loading{position:absolute;inset:0;display:grid;place-items:center;background:linear-gradient(#bfe0f2,#e8f4d8);font-family:'Baloo 2','Nunito',system-ui,sans-serif;font-weight:800;font-size:22px;color:#245a31;z-index:4;transition:opacity .4s}
 .mmj-loading.gone{opacity:0;pointer-events:none}
 .mmj-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .15s}
 .mmj-heat{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 20%,rgba(255,214,150,0),rgba(255,190,110,.18))}

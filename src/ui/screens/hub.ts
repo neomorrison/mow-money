@@ -29,11 +29,14 @@ function greeting(minute: number): string {
   return 'Good evening';
 }
 
+/** Money earned today: gear bought or sold and loans are investments, not a bad day. */
 function todayNet(s: GameState): number {
-  return (s.ledger || []).filter((e) => e.day === s.day).reduce((a, e) => a + e.amount, 0);
+  const capital = ['equipment', 'sale', 'loan', 'branch'];
+  return (s.ledger || []).filter((e) => e.day === s.day && !capital.includes(e.cat)).reduce((a, e) => a + e.amount, 0);
 }
 
-function ticketCard(t: JobTicket, s: GameState): Raw {
+function ticketCard(t: JobTicket, s: GameState, issues: Map<string, string>): Raw {
+  const crewIssue = (_: GameState, id: string) => issues.get(id) ?? '';
   const crews = s.crews || [];
   const grassHot = t.grassIn >= 5.5;
   const due = t.done
@@ -82,7 +85,7 @@ function ticketCard(t: JobTicket, s: GameState): Raw {
       <span class="ui-grow"></span>
       <button class="ui-btn ui-btn--sm ui-btn--ghost" data-click="goHood" data-key="${t.hoodKey}" data-tip="Open ${t.hoodName}">${raw(icon('map'))}<span class="ui-hide-xs">Map</span></button>
       ${mine && t.canAutopilot ? html`<button class="ui-btn ui-btn--sm ui-btn--sky" data-click="auto" data-id="${t.clientId}" data-tip="Mow on autopilot, about ${duration(t.estMinutes)}. Quality near your best here.">${raw(icon('robot'))}Auto</button>` : ''}
-      ${mine ? html`<button class="ui-btn ui-btn--sm ui-btn--go" data-click="mow" data-id="${t.clientId}">${raw(icon('mower'))}Mow</button>` : html`<span class="ui-chip ui-chip--sky">${raw(icon('truck'))}Crew</span>`}
+      ${mine ? html`<button class="ui-btn ui-btn--sm ui-btn--go" data-click="mow" data-id="${t.clientId}">${raw(icon('mower'))}Mow</button>` : crewIssue(s, t.assignee) ? html`<span class="ui-chip ui-chip--red" data-tip="${crewIssue(s, t.assignee)}">${raw(icon('alert'))}Crew not ready</span>` : html`<span class="ui-chip ui-chip--sky">${raw(icon('truck'))}Crew</span>`}
     </div>`}
   </article>`;
 }
@@ -145,11 +148,11 @@ function nextUpgradeCard(s: GameState): Raw | string {
 }
 
 /** Today's three goals with progress and rewards. */
-function goalsCard(s: GameState): Raw | string {
+function goalsCard(s: GameState, where: 'main' | 'side'): Raw | string {
   const g = s.goals;
   if (!g || g.day !== s.day || !g.list.length) return '';
   const left = g.list.filter((x) => !x.done).length;
-  return html`<div class="ui-card ui-card--sun ui-goals">
+  return html`<div class="ui-card ui-card--sun ui-goals ui-goals--${where}">
     <div class="ui-card__head"><span class="ui-card__title">${raw(icon('target'))}Today's goals</span><span class="ui-small ui-strong">${left ? `${g.list.length - left} of ${g.list.length}` : 'All done'}</span></div>
     <div class="ui-col" style="gap:10px">
       ${g.list.map((x) => html`<div class="ui-goal ${x.done ? 'is-done' : ''}">
@@ -160,7 +163,7 @@ function goalsCard(s: GameState): Raw | string {
         <span class="ui-chip ${x.done ? '' : 'ui-chip--sun'}">+${money(x.reward)}</span>
       </div>`)}
     </div>
-    <div class="ui-tiny ui-muted" style="margin-top:10px">${g.sweep ? 'Clean sweep bonus earned.' : html`Clear all three for a ${money(safe(() => sim.sweepBonus(s), 0))} bonus.`}</div>
+    <div class="ui-tiny ui-muted" style="margin-top:10px">${g.sweep ? 'Clean sweep bonus earned.' : html`Clear all ${g.list.length === 2 ? 'both' : g.list.length} for a ${money(safe(() => sim.sweepBonus(s), 0))} bonus.`}</div>
   </div>`;
 }
 
@@ -172,6 +175,7 @@ function render(): Raw {
   const done = tickets.filter((t) => t.done);
   const mineOpen = open.filter((t) => t.assignee === 'owner');
   const plans = safe(() => sim.crewPlans(s), [] as CrewPlan[], 'crewPlans');
+  const issues = new Map(plans.filter((p) => !p.ready).map((p) => [p.crewId, p.problem || 'Not ready'] as [string, string]));
   const hoods = safe(() => sim.hoods(s), [], 'hoods');
   const leads = hoods.reduce((a, h) => a + (h.leads || 0), 0);
   const bids = safe(() => sim.openBids(s), [], 'openBids').filter((b) => b.status === 'open');
@@ -220,6 +224,7 @@ function render(): Raw {
   ${mineOpen.length && work > left + 60 && !winter ? html`<div class="ui-note ui-note--warn" style="margin:-4px 0 14px">${raw(icon('crew'))}More lawns than you can mow before dark.${s.crews.length ? ' Assign some to a crew.' : html` <button class="ui-link" data-click="nav" data-id="crew">Hire a crew</button> to take the overflow.`}</div>` : ''}
   <div class="ui-hub-grid">
     <section class="ui-hub-main">
+      ${goalsCard(s, 'main')}
       ${winter ? html`
         <div class="ui-card ui-card--sky ui-winter">
           <div class="ui-row" style="gap:14px;align-items:flex-start">
@@ -241,7 +246,7 @@ function render(): Raw {
         <button class="ui-btn ui-btn--sm ui-btn--ghost" data-click="practice" data-tip="Mow a free practice lawn. No pay, no rating.">${raw(icon('grass'))}Practice lawn</button>
       </h2>
       ${open.length
-        ? html`<div class="ui-tickets">${open.map((t) => ticketCard(t, s))}</div>`
+        ? html`<div class="ui-tickets">${open.map((t) => ticketCard(t, s, issues))}</div>`
         : winter
           ? emptyState('snow', 'Lawns rest until spring', 'Plan upgrades in the garage or skip ahead.')
         : !cal.isWorkday && s.clients.length
@@ -255,7 +260,7 @@ function render(): Raw {
     </section>
 
     <aside class="ui-hub-side">
-      ${goalsCard(s)}
+      ${goalsCard(s, 'side')}
       <div class="ui-card ui-card--flat">
         <div class="ui-card__head"><span class="ui-card__title">${raw(icon('sun'))}Forecast</span>${s.weather?.drought ? html`<span class="ui-chip ui-chip--orange">Drought</span>` : ''}</div>
         <div class="ui-forecast">

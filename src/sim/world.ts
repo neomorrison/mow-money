@@ -429,7 +429,11 @@ export function knockBlockReason(state: GameState, info: HouseInfo): string {
   if (!state.hoods.includes(key)) return 'Neighborhood locked.';
   if (clientForHouse(state, info.id)) return 'Already a client.';
   if (info.noSoliciting && !isLead(state, s)) return 'No Soliciting sign on the door.';
-  if (isCold(state, s)) return s?.lastKnockDay === state.day && s?.coldUntil === state.day + 1 ? 'You already pitched here today.' : 'They asked you to come back later.';
+  if (isCold(state, s)) {
+    if (s?.lastKnockDay === state.day && s?.coldUntil === state.day + 1) return 'You already pitched here today.';
+    const days = Math.max(1, (s?.coldUntil ?? state.day + 1) - state.day);
+    return days === 1 ? 'Not interested right now. Try again tomorrow.' : `Not interested right now. Try again in ${days} days.`;
+  }
   return '';
 }
 

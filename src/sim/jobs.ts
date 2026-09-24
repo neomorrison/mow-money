@@ -190,7 +190,7 @@ export function rollTip(rng: Rng, c: Client, q: number, tipMult: number, opts: {
   if (streak >= 2) parts.push({ label: `Hot streak x${streak}`, amount: perf * STREAK_TIP * streak });
   const stripe = opts.stripe ?? 0;
   if (stripe >= 0.5) parts.push({ label: 'Stripes', amount: c.price * 0.05 * stripe * (c.wantsStripes ? 2 : 1) * tipMult });
-  if (rapport >= 0.3) parts.push({ label: 'Charm', amount: c.price * 0.08 * rapport * tipMult });
+  if (rapport >= 0.3) parts.push({ label: 'They like you', amount: c.price * 0.08 * rapport * tipMult });
   const out = parts.map((x) => ({ label: x.label, amount: r2(x.amount) })).filter((x) => x.amount >= 0.5);
   const tip = r2(out.reduce((a, x) => a + x.amount, 0));
   return tip >= 1 ? { tip, parts: out } : { tip: 0, parts: [] };

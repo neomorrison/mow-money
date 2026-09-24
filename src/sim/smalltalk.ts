@@ -33,6 +33,9 @@ export function smallTalk(state: GameState, clientId: Id, tone: Tone): SmallTalk
   const charmer = hasPerk(state, 'charmer');
   let aff = arch?.tone[tone] ?? 0;
   if (charmer && aff < 0) aff = 0;
+  // Nobody warms up much right after a disappointing job: charm lands softer and earns no tip.
+  const upset = c.lastQ >= 0 && c.lastQ < c.expectation - 8;
+  if (upset && aff > 0) aff = 0;
   const reaction: SmallTalkResult['reaction'] = aff > 0 ? 'liked' : aff < 0 ? 'disliked' : 'neutral';
   const own = SMALLTALK[info.archetypeId] ?? {};
   const pool = [...(own[reaction] ?? []), ...(own[reaction] ?? []), ...SMALLTALK_GENERIC[reaction]];
@@ -47,7 +50,8 @@ export function smallTalk(state: GameState, clientId: Id, tone: Tone): SmallTalk
     const tipHabit = 0.5 + 0.5 * (arch?.tipMult ?? 1);
     const pleased = c.lastQ >= c.expectation - 10 ? 1 : 0.4;
     let tip = 0;
-    if (reaction === 'liked') tip = c.price * (0.04 + 0.12 * c.rapport) * tipHabit * pleased * (charmer ? 1.5 : 1);
+    if (upset) tip = 0;
+    else if (reaction === 'liked') tip = c.price * (0.04 + 0.12 * c.rapport) * tipHabit * pleased * (charmer ? 1.5 : 1);
     else if (reaction === 'neutral' && rng.chance(0.35)) tip = c.price * 0.035 * tipHabit * pleased * (charmer ? 1.5 : 1);
     tip = r2(tip);
     if (tip < 1) tip = 0;
@@ -70,8 +74,10 @@ export function smallTalk(state: GameState, clientId: Id, tone: Tone): SmallTalk
       });
     }
     checkGoals(state);
-    const message = reaction === 'liked' ? (tip > 0 ? `Charm tip: $${tip.toFixed(2)}` : 'They liked that.')
-      : reaction === 'disliked' ? 'That fell flat.' : tip > 0 ? `Tip: $${tip.toFixed(2)}` : 'Polite enough.';
+    const sat = ds > 0 ? ` Satisfaction +${ds}.` : ds < 0 ? ` Satisfaction ${ds}.` : '';
+    const message = upset && reaction !== 'disliked' ? 'Polite, but they are still unhappy with the lawn.'
+      : reaction === 'liked' ? (tip > 0 ? `Charm tip: $${tip.toFixed(2)}.${sat}` : `They liked that.${sat}`)
+      : reaction === 'disliked' ? `That fell flat.${sat}` : tip > 0 ? `Tip: $${tip.toFixed(2)}.` : 'Polite enough.';
     return { ok: true, message, playerLine, reply, reaction, tip, rapport: c.rapport, satisfaction: c.satisfaction };
   });
 }

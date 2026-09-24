@@ -21,7 +21,8 @@ function emptyReport(state: GameState): DayReport {
   const cal = calendar(state.day);
   return {
     day: state.day, label: cal.label, revenue: 0, expenses: 0, net: 0, lines: [], jobs: [], missed: [], newClients: [],
-    lostClients: [], referrals: [], staff: [], events: [], repBefore: reputation(state), repAfter: reputation(state),
+    // reputation at dawn, so the report shows what today's own jobs did too
+    lostClients: [], referrals: [], staff: [], events: [], repBefore: typeof state.flags.repDawn === 'number' ? state.flags.repDawn : reputation(state), repAfter: reputation(state),
     cashEnd: state.cash, weatherTomorrow: state.weather.forecast[0] ?? state.weather.today, seasonChanged: null, achievements: [],
   };
 }
@@ -225,6 +226,7 @@ export function endDay(state: GameState): DayReport {
   state.owner.minute = DAY_START;
   state.owner.location = 'hq';
   state.owner.jobsToday = 0;
+  state.flags.repDawn = reputation(state);
   const back = reclaimJobs(state);
   if (back) report.events.push(`${back} ${back === 1 ? 'job' : 'jobs'} a crew could not get to came back to you.`);
   ensureGoals(state);

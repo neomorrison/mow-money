@@ -51,6 +51,7 @@ export interface HudState {
   minute: number;
   late: boolean;
   quality: QualityBreakdown | null;
+  projected?: number | null; // score the job is on track for while it is unfinished
   coverage: number;
   trim: number;
   stripe: number;
@@ -79,7 +80,7 @@ export class Hud {
   minimap: HTMLCanvasElement;
   joy: JoystickView;
   private style: HTMLStyleElement;
-  private q = { big: el('div', 'big mmj-disp', '--'), stars: el('div', 'mmj-stars'), bars: el('div', 'mmj-bars') };
+  private q = { big: el('div', 'big mmj-disp', '--'), stars: el('div', 'mmj-stars'), bars: el('div', 'mmj-bars'), track: el('div', 'mmj-track') };
   private barEls: Record<string, { fill: HTMLElement; txt: HTMLElement }> = {};
   private clockT = el('div', 't');
   private clockBox: HTMLDivElement;
@@ -127,7 +128,7 @@ export class Hud {
     const qc = el('div', 'mmj-card mmj-q');
     const row = el('div', 'row');
     const left = el('div');
-    left.append(el('div', 'lbl', 'Quality'), this.q.big);
+    left.append(el('div', 'lbl', 'Quality'), this.q.big, this.q.track);
     row.append(left, this.q.stars);
     qc.append(row, this.q.bars);
     for (const [key, label] of [['cov', 'Coverage'], ['trim', 'Edges'], ['stripe', 'Stripes'], ['clean', 'Cleanup']] as const) {
@@ -153,7 +154,9 @@ export class Hud {
     this.status.bag.innerHTML = '<u style="width:0%"></u>';
     this.status.sharp.innerHTML = '<u style="width:100%"></u>';
     const sharpRow = el('div'); sharpRow.append(el('div', 'kv', '<span>Blade</span>'), this.status.sharp);
+    kvTarget.title = 'Within half an inch of this is fine';
     st.append(this.status.tool, kvDeck, kvTarget, this.status.bagRow, sharpRow);
+    this.mowerRows = { deck: kvDeck, target: kvTarget, sharp: sharpRow };
 
     // buttons
     const btns = el('div', 'mmj-btns');
@@ -210,6 +213,7 @@ export class Hud {
     this.lawnM2 = lawnM2;
   }
   private lawnM2: number;
+  private mowerRows: { deck: HTMLElement; target: HTMLElement; sharp: HTMLElement } | null = null;
 
   /** Switch to the compact layout on small screens. */
   layout() {
@@ -232,6 +236,7 @@ export class Hud {
     if (s.quality) {
       const q = Math.round(s.quality.q);
       set('q', String(q), (v) => { this.q.big.textContent = v; });
+      set('track', s.projected == null ? '' : String(Math.round(s.projected)), (v) => { this.q.track.textContent = v ? `On track for ${v}` : ''; });
       const st = Math.round(s.quality.stars * 4) / 4;
       set('stars', String(st), () => { this.q.stars.innerHTML = [0, 1, 2, 3, 4].map((i) => starSvg(st - i)).join(''); });
     }
@@ -244,6 +249,12 @@ export class Hud {
       const icon = s.tool === 1 ? ICON.mower : s.tool === 2 ? ICON.trimmer : ICON.blower;
       this.status.tool.innerHTML = `${icon}<span>${esc(s.toolName)}</span>`;
       this.toolBtns.forEach((b, i) => b.classList.toggle('on', i + 1 === s.tool));
+      // deck and blade only matter while mowing (the trimmer cuts to the deck height too)
+      if (this.mowerRows) {
+        this.mowerRows.deck.style.display = s.tool === 3 ? 'none' : '';
+        this.mowerRows.target.style.display = s.tool === 3 ? 'none' : '';
+        this.mowerRows.sharp.style.display = s.tool === 1 ? '' : 'none';
+      }
     });
     set('deck', s.deckIn.toFixed(2) + '|' + s.targetIn, () => {
       this.status.deck.textContent = `${fmtIn(s.deckIn)}`;
@@ -333,7 +344,7 @@ export class Hud {
       ['Grass', `${fmtIn(s.grassIn)}`],
       ['Cut to', `${fmtIn(s.targetIn)}`],
       ['Weather', WEATHER_LABEL[s.weather] + (s.wet ? ', wet' : '')],
-      ['Stripes', `${s.autoStripe ? 'Auto, ' : ''}${s.wantsStripes ? 'big bonus' : 'bonus'}`],
+      ['Stripe bonus', `${s.autoStripe ? 'Auto, ' : ''}up to +${s.wantsStripes ? 8 : 5}`],
       ['Mower', extra.mowerName],
     ];
     const notes = [...s.notes];
