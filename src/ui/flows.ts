@@ -285,6 +285,57 @@ export function runAutopilot(clientId: string): void {
   showResult(out, null, 'autopilot', location.hash || routeHash('hub'), lvlBefore);
 }
 
+/**
+ * Autopilot every eligible job due today, in order, until the day runs out. Clients whose favorite tone you
+ * know get a quick chat in that tone (a charm tip you already earned by learning it).
+ */
+export function autopilotAllFlow(): void {
+  if (!store.loaded) return;
+  const s = store.state;
+  const lvlBefore = safe(() => sim.ownerLevel(s).level, s.owner.level);
+  const done: { name: string; q: number; paid: number }[] = [];
+  let tips = 0;
+  let stop = '';
+  for (let guard = 0; guard < 80; guard++) {
+    const t = safe(() => sim.jobsToday(s), []).find((x) => !x.done && x.assignee === 'owner' && x.canAutopilot);
+    if (!t) break;
+    const out = safe(() => sim.autopilotJob(s, t.clientId), { error: 'Autopilot is not available right now.' } as JobOutcome | { error: string });
+    if ('error' in out) {
+      if (/broke down/.test(out.error)) { toast(out.error, 'bad'); continue; }
+      stop = out.error;
+      break;
+    }
+    tips += out.tip;
+    const c = sim.clientById(s, t.clientId);
+    if (c?.likedTone && sim.canSmallTalk(s, c.id)) {
+      const talk = safe(() => sim.smallTalk(s, c.id, c.likedTone!), null);
+      if (talk?.ok) tips += talk.tip;
+    }
+    done.push({ name: t.ownerName, q: out.q, paid: out.paid });
+  }
+  store.commit({ saveNow: true });
+  if (!done.length) { toast(stop || 'No jobs ready for autopilot. Mow a lawn by hand once first.', 'info'); return; }
+  const paid = done.reduce((a, d) => a + d.paid, 0);
+  const avg = done.reduce((a, d) => a + d.q, 0) / done.length;
+  const lvlAfter = safe(() => sim.ownerLevel(s).level, s.owner.level);
+  try { audio.play('cash'); } catch { /* ignore */ }
+  const m = openModal({
+    title: `Autopilot: ${done.length} ${done.length === 1 ? 'lawn' : 'lawns'} done`,
+    body: html`<div class="ui-col" style="gap:10px">
+      <div class="ui-row ui-row--wrap" style="gap:8px">
+        <span class="ui-chip">${raw(icon('cash'))}Paid ${money(paid)}</span>
+        ${tips > 0 ? html`<span class="ui-chip ui-chip--sun">${raw(icon('heart'))}Tips ${money(tips)}</span>` : ''}
+        <span class="ui-chip ui-chip--sky">${raw(icon('star'))}Average quality ${Math.round(avg)}</span>
+        ${lvlAfter > lvlBefore ? html`<span class="ui-chip ui-chip--sun">${raw(icon('level'))}Level ${lvlAfter}</span>` : ''}
+      </div>
+      <div class="ui-col" style="gap:4px;max-height:40vh;overflow:auto">${done.map((d) => html`<div class="ui-row ui-small"><span class="ui-grow">${d.name}</span><b class="ui-num">${Math.round(d.q)}</b><span class="ui-num ui-muted" style="width:64px;text-align:right">${money(d.paid)}</span></div>`)}</div>
+      ${stop ? html`<p class="ui-small ui-muted">${stop}</p>` : ''}
+    </div>`,
+    actions: html`<button class="ui-btn ui-btn--primary" data-click="ok">OK</button>`,
+    handlers: { ok: () => m.close() },
+  });
+}
+
 // ---------------------------------------------------------------- end of day
 export async function endDayFlow(): Promise<void> {
   if (!store.loaded) return;
@@ -346,7 +397,7 @@ export async function sellCompanyFlow(): Promise<void> {
   if (!can.ok) { toast(can.message || 'Not available yet.', 'bad'); return; }
   const val = safe(() => sim.valuation(s), null);
   const total = val?.total ?? 0;
-  const pts = Math.floor(Math.sqrt(Math.max(0, total) / 10000));
+  const pts = safe(() => sim.legacyPointsFor(total), 0);
   const ok = await confirmDialog({
     title: `Sell ${s.company.name}?`,
     body: html`<div class="ui-col" style="gap:12px">

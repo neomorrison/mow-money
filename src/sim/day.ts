@@ -7,7 +7,7 @@ import { addLedger, hasRole, num, r1, r2, readDayLog, withRng } from './util';
 import { reputation } from './reputation';
 import { growOnce, growAvgDays } from './growth';
 import { advanceWeather } from './weather';
-import { autoDispatch, runCrews, overnightMaintenance } from './crews';
+import { autoDispatch, runCrews, overnightMaintenance, reclaimJobs } from './crews';
 import { runSalesReps, payWages, driftMorale, weeklyQuits, refreshCandidates } from './staff';
 import { clientRivalMult, hDayFromWeek, hWeek, latenessPenalty, removeClient } from './clients';
 import { rollLeads, rollReferrals, resolveBids, spawnBids, tickContracts } from './market';
@@ -53,7 +53,9 @@ export function endDay(state: GameState): DayReport {
       let cur = typeof h.h === 'number' && Number.isFinite(h.h) ? h.h : 3;
       const from = typeof h.hDay === 'number' ? h.hDay : state.day;
       if (from < state.day) cur = growAvgDays(cur, from, state.day);
-      cur = growOnce(cur, cal.season, state.weather.today, c.addOns.includes('fertilizer'), state.weather.drought);
+      const next = growOnce(cur, cal.season, state.weather.today, c.addOns.includes('fertilizer'), state.weather.drought);
+      // golf fairways get mowed three times a week by the club between contract visits (section 6)
+      cur = houseInfo(state, c.houseId).lot.kind === 'golf' ? cur + (next - cur) / 3 : next;
       h.h = r2(cur);
       h.hDay = state.day + 1;
     }
@@ -61,7 +63,8 @@ export function endDay(state: GameState): DayReport {
     if (!winter) {
       for (const c of state.clients) {
         if (c.status !== 'active' || c.lastServiceDay === state.day) continue;
-        if (c.nextDueDay <= state.day && c.assignee === 'owner' && !report.missed.some((m) => m.clientId === c.id)) {
+        // only a real miss once the grace day is used up (due yesterday, still not done)
+        if (c.nextDueDay < state.day && c.assignee === 'owner' && !report.missed.some((m) => m.clientId === c.id)) {
           report.missed.push({ clientId: c.id, address: houseInfo(state, c.houseId).address, reason: storm ? 'Storm' : 'Not done' });
         }
         if (state.day > c.nextDueDay + 1 && cal.weekday !== 6 && !storm) {
@@ -128,14 +131,16 @@ export function endDay(state: GameState): DayReport {
       if (profit > 0) addLedger(state, -profit * TAX_RATE, 'tax', `Taxes, ${seasonLabel(cal.season)}`);
       state.flags.seasonProfit = 0;
       if (nextCal.season === 'winter') {
+        // Keep each client's place in the weekly rotation so spring does not start with every lawn due at once.
         const springDay = state.day + 1 + 14;
-        for (const c of state.clients) c.nextDueDay = springDay;
+        for (const c of state.clients) c.nextDueDay = springDay + Math.max(0, Math.min(c.freq - 1, c.nextDueDay - (state.day + 1)));
         report.events.push('Winter is here. Contracts pause until spring.');
       }
       if (nextCal.season === 'spring') {
         let lost = 0;
         for (const c of [...state.clients]) {
-          c.nextDueDay = state.day + 1;
+          // staggered at the start of winter; anything left at or before today starts tomorrow
+          c.nextDueDay = Math.max(state.day + 1, Math.min(c.nextDueDay, state.day + c.freq));
           if (c.commercial) continue;
           const renew = Math.pow(1 - hWeek(c.satisfaction), 2);
           if (!rng.chance(renew)) { removeClient(state, c, 'Did not renew', rng); lost++; }
@@ -220,6 +225,8 @@ export function endDay(state: GameState): DayReport {
   state.owner.minute = DAY_START;
   state.owner.location = 'hq';
   state.owner.jobsToday = 0;
+  const back = reclaimJobs(state);
+  if (back) report.events.push(`${back} ${back === 1 ? 'job' : 'jobs'} a crew could not get to came back to you.`);
   ensureGoals(state);
   report.achievements = checkAchievements(state);
   return report;

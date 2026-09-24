@@ -1,10 +1,10 @@
 // Crews: gear, dispatch planning and the daily crew run (docs/DESIGN.md sections 9 and 14).
-import type { ActionResult, Client, Crew, CrewPlan, DayReport, EquipmentSpec, Employee, GameState, Id } from '../core/types';
+import type { ActionResult, Client, Crew, CrewPlan, DayReport, EquipmentSpec, Employee, GameState, Id, OwnedItem } from '../core/types';
 import type { Rng } from '../core/rng';
 import { clamp } from '../core/rng';
 import { EQUIPMENT_BY_ID } from '../data/equipment';
 import { HOOD_BY_ID, TOWN_BY_ID, splitHoodKey } from '../data/hoods';
-import { BLADE_WEAR_PER_1000, CREW_CAPACITY, CREW_Q_BASE, CREW_Q_SKILL, SAME_HOOD_TRAVEL, SETUP_MINUTES, SKILL_GROWTH } from './constants';
+import { BLADE_WEAR_PER_1000, BREAKDOWN_FIXED, BREAKDOWN_PER_HOUR, CREW_CAPACITY, CREW_Q_BASE, CREW_Q_SKILL, SAME_HOOD_TRAVEL, SETUP_MINUTES, SKILL_GROWTH } from './constants';
 import { addLedger, hasPerk, hasRole, itemByUid, newId, r1, r2 } from './util';
 import { canCarry, effectiveStripe, workMinutes } from './kit';
 import { grassHeight, houseHoodKey, houseInfo, travelMinutesWith } from './world';
@@ -56,6 +56,21 @@ export function assignToCrew(state: GameState, employeeId: Id, crewId: Id | null
   return { ok: true, message: target ? `${e.name} joined ${target.name}.` : `${e.name} left the crew.` };
 }
 
+/** Best spare item of a category for the owner (not on a crew, not `except`, fits the rest of the kit). */
+function ownerReplacement(state: GameState, cat: string, except: Id): OwnedItem | undefined {
+  const o = state.owner;
+  const mine = (uid: Id | null) => itemByUid(state, uid);
+  return state.items
+    .filter((i) => i.uid !== except && !i.crewId && EQUIPMENT_BY_ID[i.specId]?.category === cat && !inOwnerKit(state, i.uid))
+    .filter((i) => {
+      const s = EQUIPMENT_BY_ID[i.specId];
+      if (cat === 'mower') { const v = EQUIPMENT_BY_ID[mine(o.vehicleUid)?.specId ?? 'bike']; return !v || canCarry(v, s); }
+      if (cat === 'vehicle') { const m = EQUIPMENT_BY_ID[mine(o.mowerUid)?.specId ?? 'reel']; return !m || canCarry(s, m); }
+      return true;
+    })
+    .sort((a, b) => (EQUIPMENT_BY_ID[b.specId]?.tier ?? 0) - (EQUIPMENT_BY_ID[a.specId]?.tier ?? 0))[0];
+}
+
 export function setCrewGear(state: GameState, crewId: Id, gear: { vehicleUid?: Id | null; mowerUid?: Id | null; trimmerUid?: Id | null; blowerUid?: Id | null }): ActionResult {
   const crew = crewById(state, crewId);
   if (!crew) return { ok: false, message: 'Unknown crew.' };
@@ -70,15 +85,23 @@ export function setCrewGear(state: GameState, crewId: Id, gear: { vehicleUid?: I
     if (!it) return { ok: false, message: 'You do not own that item.' };
     const spec = EQUIPMENT_BY_ID[it.specId];
     if (spec?.category !== cat) return { ok: false, message: `That is not a ${cat}.` };
-    if (inOwnerKit(state, uid)) return { ok: false, message: `The ${spec.name} is in your kit.` };
+    if (inOwnerKit(state, uid) && !ownerReplacement(state, cat, uid)) {
+      if (cat === 'mower' || cat === 'vehicle') return { ok: false, message: `The ${spec.name} is your only ${cat}. Buy another for yourself first.` };
+    }
     if (it.crewId && it.crewId !== crewId) {
       const other = crewById(state, it.crewId);
       if (other) return { ok: false, message: `The ${spec.name} is with ${other.name}.` };
     }
   }
-  for (const [k, field] of slots) {
+  for (const [k, field, cat] of slots) {
     const uid = gear[k];
     if (uid === undefined) continue;
+    // Taking something out of the owner's kit: the owner falls back to the best spare.
+    if (uid && inOwnerKit(state, uid)) {
+      const rep = ownerReplacement(state, cat, uid);
+      const slot = (cat + 'Uid') as 'mowerUid' | 'trimmerUid' | 'blowerUid' | 'vehicleUid';
+      state.owner[slot] = rep ? rep.uid : null;
+    }
     const old = itemByUid(state, crew[field]);
     if (old && old.crewId === crewId) old.crewId = null;
     crew[field] = uid;
@@ -206,8 +229,30 @@ export function crewPlans(state: GameState): CrewPlan[] {
   });
 }
 
+/**
+ * Morning check: jobs assigned to a crew that is gone or cannot work, and overdue jobs that do not fit in
+ * their crew's day, come back to the owner (or the office manager's dispatch) instead of rotting.
+ */
+export function reclaimJobs(state: GameState): number {
+  if (calendar(state.day).season === 'winter') return 0;
+  let n = 0;
+  for (const crew of state.crews) {
+    const problem = crewProblem(state, crew);
+    const cands = crewCandidates(state, crew);
+    const skipped = problem ? cands : routeCrew(state, crew, cands).skipped;
+    for (const c of skipped) {
+      if (problem || daysOverdue(state, c) >= 1) { c.assignee = 'owner'; n++; }
+    }
+  }
+  for (const c of state.clients) {
+    if (c.assignee !== 'owner' && !state.crews.some((cr) => cr.id === c.assignee)) { c.assignee = 'owner'; n++; }
+  }
+  return n;
+}
+
 export function autoDispatch(state: GameState): ActionResult {
   if (calendar(state.day).season === 'winter') return { ok: true, message: 'Nothing to dispatch in winter.' };
+  reclaimJobs(state);
   const ready = state.crews.filter((c) => crewProblem(state, c) === '');
   if (!ready.length) return { ok: false, message: 'No crew is ready.' };
   const readyIds = new Set(ready.map((c) => c.id));
@@ -287,7 +332,8 @@ export function runCrews(state: GameState, rng: Rng): CrewDayResult {
     }
     const present: Employee[] = [];
     for (const e of all) {
-      const p = (1 - e.reliability) * 0.5 * (e.traits.includes('Night Owl') && cal.weekday === 0 ? 1.5 : 1);
+      // unhappy people call in sick more
+      const p = (1 - e.reliability) * 0.5 * (e.traits.includes('Night Owl') && cal.weekday === 0 ? 1.5 : 1) * (1 + Math.max(0, 50 - e.morale) / 25);
       if (rng.chance(p)) res.staff.push({ name: e.name, event: 'No-show today.' });
       else present.push(e);
     }
@@ -308,18 +354,24 @@ export function runCrews(state: GameState, rng: Rng): CrewDayResult {
     let fuelGal = 0;
     let travelMin = 0;
     let done = 0;
-    let broken = false;
+    let broke = false;
+    let lost = 0;       // minutes lost to a breakdown
+    let used = 0;
     for (let i = 0; i < route.jobs.length; i++) {
       const j = route.jobs[i];
       const c = j.client;
       const info = houseInfo(state, c.houseId);
-      if (broken) { res.missed.push({ clientId: c.id, address: info.address, reason: `${crew.name}: mower broke down` }); continue; }
-      const pBreak = (1 - (g.mower!.reliability ?? 0.95)) * (1.5 - (mowerItem?.condition ?? 1)) * mech;
-      if (rng.chance(pBreak)) {
-        broken = true;
+      if (used + j.travel + j.minutes + lost > CREW_CAPACITY) { res.missed.push({ clientId: c.id, address: info.address, reason: `${crew.name}: out of time after a breakdown` }); continue; }
+      used += j.travel + j.minutes;
+      // Breakdowns scale with engine hours; the crew fixes it on site, loses an hour and this job, then carries on.
+      const pBreak = BREAKDOWN_PER_HOUR * (1 - (g.mower!.reliability ?? 0.95)) * (1.5 - (mowerItem?.condition ?? 1)) * mech * (j.minutes / 60);
+      if (!broke && rng.chance(pBreak)) {
+        broke = true;
+        lost += 60;
         const cost = Math.round(0.08 * Math.max(g.mower!.price, 150) * (1.2 - (mowerItem?.condition ?? 1)));
         addLedger(state, -cost, 'repair', `Breakdown repair, ${crew.name}`);
-        res.staff.push({ name: crew.name, event: `${g.mower!.name} broke down. Repair $${cost}.` });
+        if (mowerItem) mowerItem.condition = Math.max(mowerItem.condition, BREAKDOWN_FIXED);
+        res.staff.push({ name: crew.name, event: `${g.mower!.name} broke down. Fixed on site for $${cost}, lost an hour.` });
         res.missed.push({ clientId: c.id, address: info.address, reason: `${crew.name}: mower broke down` });
         continue;
       }
@@ -349,7 +401,6 @@ export function runCrews(state: GameState, rng: Rng): CrewDayResult {
         e.skill = Math.round(Math.min(100, e.skill + (100 - e.skill) * SKILL_GROWTH * (hasPerk(state, 'trainer') ? 2 : 1)) * 1000) / 1000;
       }
     }
-    if (broken && mowerItem) mowerItem.condition = Math.max(0, mowerItem.condition - 0.05);
     wearItem(vehItem, travelMin / 60, 0);
     fuelGal += (g.vehicle!.fuelGalPerHr ?? 0) * (travelMin / 60);
     if (paidTotal > 0) addLedger(state, paidTotal, 'job', `${crew.name}: ${done} ${done === 1 ? 'job' : 'jobs'}`);

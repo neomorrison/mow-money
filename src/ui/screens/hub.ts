@@ -11,7 +11,7 @@ import { navigate } from '../router';
 import {
   safe, act, calSafe, avatar, bar, satColor, satLabel, WEATHER_LABEL, WEATHER_NOTE, WEEKDAYS_LONG, emptyState, plural, clamp,
 } from '../kit';
-import { endDayFlow, runAutopilot, skipWinterFlow, startMow } from '../flows';
+import { autopilotAllFlow, endDayFlow, runAutopilot, skipWinterFlow, startMow } from '../flows';
 import { prefs } from '../prefs';
 import { ui } from '../uistate';
 import { toast } from '../overlay';
@@ -180,6 +180,8 @@ function render(): Raw {
   const tutorial = prefs.s.showHints && TUTORIAL[tut];
   const winter = cal.season === 'winter';
   const left = safe(() => sim.ownerMinutesLeft(s), 0);
+  // rough load: each job's estimate includes travel from where you are now, so count travel once
+  const work = mineOpen.reduce((a, t) => a + t.estMinutes, 0) - Math.max(0, mineOpen.length - 1) * 3;
   const net = todayNet(s);
   const wx = s.weather?.today || 'sunny';
   const days = [wx, ...(s.weather?.forecast || [])].slice(0, 4);
@@ -194,6 +196,12 @@ function render(): Raw {
     <button class="ui-btn ui-btn--primary ui-btn--lg ui-endday" data-click="endDay">${raw(icon('moon'))}End Day<kbd class="ui-kbd ui-hide-sm">Enter</kbd></button>
   </div>
 
+  ${(() => {
+    const toGo = cal.seasonLength - cal.dayOfSeason;
+    const profit = Number(s.flags?.seasonProfit) || 0;
+    const tax = Math.round(profit * 0.15);
+    return !winter && toGo <= 3 && tax > 0 ? html`<div class="ui-note ui-note--warn" style="margin-bottom:14px">${raw(icon('bank'))}Season taxes of about ${money(tax)} are due ${toGo === 0 ? 'tonight' : `in ${plural(toGo, 'day')}`} (15% of this season's profit). Keep some cash for them.</div>` : '';
+  })()}
   ${tutorial ? html`
     <div class="ui-card ui-card--sun ui-hint" role="note">
       <span class="ui-hint__badge">${raw(icon('sparkle'))}</span>
@@ -204,11 +212,12 @@ function render(): Raw {
 
   <div class="ui-hub-stats">
     <div class="ui-stat ${net > 0 ? 'ui-stat--good' : net < 0 ? 'ui-stat--bad' : ''}"><div class="ui-stat__label">${raw(icon('cash'))}Today</div><div class="ui-stat__value">${net > 0 ? '+' : ''}${money(net)}</div></div>
-    <div class="ui-stat"><div class="ui-stat__label">${raw(icon('mower'))}Your jobs</div><div class="ui-stat__value">${mineOpen.length}</div><div class="ui-stat__sub">${done.length} done</div></div>
+    <div class="ui-stat ${work > left && mineOpen.length ? 'ui-stat--bad' : ''}" data-tip="Time your open jobs need with your kit, against the daylight left"><div class="ui-stat__label">${raw(icon('mower'))}Your jobs</div><div class="ui-stat__value">${mineOpen.length}</div><div class="ui-stat__sub">${mineOpen.length ? (work > left ? `~${duration(work)} of work, more than the day` : `~${duration(work)} of work`) : `${done.length} done`}</div></div>
     <button class="ui-stat ui-stat--link" data-click="nav" data-id="map"><div class="ui-stat__label">${raw(icon('door'))}Warm leads</div><div class="ui-stat__value">${leads}</div><div class="ui-stat__sub">Map ${raw(icon('chevR'))}</div></button>
     <button class="ui-stat ui-stat--link" data-click="bids"><div class="ui-stat__label">${raw(icon('gavel'))}Open bids</div><div class="ui-stat__value">${bids.length}</div><div class="ui-stat__sub">${bidsToAnswer ? `${bidsToAnswer} need a bid` : 'Finance'} ${raw(icon('chevR'))}</div></button>
   </div>
 
+  ${mineOpen.length && work > left + 60 && !winter ? html`<div class="ui-note ui-note--warn" style="margin:-4px 0 14px">${raw(icon('crew'))}More lawns than you can mow before dark.${s.crews.length ? ' Assign some to a crew.' : html` <button class="ui-link" data-click="nav" data-id="crew">Hire a crew</button> to take the overflow.`}</div>` : ''}
   <div class="ui-hub-grid">
     <section class="ui-hub-main">
       ${winter ? html`
@@ -228,6 +237,7 @@ function render(): Raw {
         </div>` : ''}
 
       <h2 class="ui-section-title" id="ui-jobs">${raw(icon('mower'))}Jobs due<span class="ui-count">${open.length}</span><span class="ui-spacer"></span>
+        ${mineOpen.filter((t) => t.canAutopilot).length >= 2 ? html`<button class="ui-btn ui-btn--sm ui-btn--sky" data-click="autoAll" data-tip="Autopilot every repeat lawn due today, until the day runs out.">${raw(icon('robot'))}Autopilot all (${mineOpen.filter((t) => t.canAutopilot).length})</button>` : ''}
         <button class="ui-btn ui-btn--sm ui-btn--ghost" data-click="practice" data-tip="Mow a free practice lawn. No pay, no rating.">${raw(icon('grass'))}Practice lawn</button>
       </h2>
       ${open.length
@@ -300,6 +310,7 @@ export const hubScreen: Screen = {
     },
     mow: (el) => startMow(el.dataset.id || null),
     auto: (el) => runAutopilot(el.dataset.id || ''),
+    autoAll: () => autopilotAllFlow(),
     practice: () => startMow(null),
     goHood: (el) => navigate('hood', el.dataset.key || ''),
     dispatch: () => act(() => sim.autoDispatch(store.state)),

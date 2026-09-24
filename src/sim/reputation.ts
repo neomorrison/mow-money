@@ -4,8 +4,8 @@ import { clamp } from '../core/rng';
 
 export const REP_PRIOR = 3.0;
 export const REP_PRIOR_WEIGHT = 5;
-export const REP_DECAY = 0.98;
-export const REP_WINDOW = 60;
+export const REP_DECAY = 0.99;
+export const REP_WINDOW = 150;       // about a week of work for a busy company, so one rainy day does not swing it
 export const STAR_Q0 = 40;          // stars = 1 + 4 * (Q - 40) / 50, so Q 90 is five stars
 
 export function starsFor(q: number): number {

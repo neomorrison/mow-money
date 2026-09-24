@@ -86,7 +86,10 @@ function owns(state: GameState, id: string) { return state.items.some((i) => i.s
 function weeklyCosts(state: GameState): number {
   const wages = state.staff.filter((e) => !e.laidOff).reduce((s, e) => s + e.wage * 10 * 6, 0);
   const loans = state.loans.reduce((s, l) => s + l.weeklyPayment, 0);
-  return wages + loans + (state.insured ? sim.insuranceWeekly(state) : 0);
+  // season-end taxes are 15 percent of the season's operating profit
+  const cal = sim.calendar(state.day);
+  const tax = cal.seasonLength - cal.dayOfSeason < 7 ? Math.max(0, Number(state.flags.seasonProfit) || 0) * 0.15 / 1.5 : 0;
+  return wages + loans + (state.insured ? sim.insuranceWeekly(state) : 0) + tax;
 }
 
 function shopping(state: GameState, bot: BotProfile): void {

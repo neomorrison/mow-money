@@ -143,6 +143,7 @@ export interface HouseInfo {
   initialProvider: Provider;
   mowCycle: number;         // DIY cycle in days
   mowPhase: number;         // DIY cycle offset
+  siteName?: string;        // unique display name for commercial, park and golf sites
 }
 
 // ---------------------------------------------------------------- saved state

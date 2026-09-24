@@ -9,7 +9,7 @@ import { HOOD_BY_ID, splitHoodKey } from '../data/hoods';
 import { EQUIPMENT_BY_ID } from '../data/equipment';
 import { lotForLawn } from '../world/property';
 import { hashSeed } from '../core/rng';
-import { DAY_END, SETUP_MINUTES, TIME_SCALE, BLADE_WEAR_PER_1000, WET_PENALTY, RAPPORT_START, STREAK_MAX, STREAK_TIP, DAMAGE_SATISFACTION } from './constants';
+import { DAY_END, SETUP_MINUTES, TIME_SCALE, BLADE_WEAR_PER_1000, WET_PENALTY, RAPPORT_START, STREAK_MAX, STREAK_TIP, DAMAGE_SATISFACTION, BREAKDOWN_FIXED, BREAKDOWN_PER_HOUR } from './constants';
 import { calendar } from './calendar';
 import { addLedger, firstName, hasPerk, hasRole, itemByUid, logDay, r1, r2, withRng } from './util';
 import { canCarry, carryError, effectiveStripe, ownerKit, workMinutes } from './kit';
@@ -255,7 +255,8 @@ export function applyService(state: GameState, rng: Rng, c: Client, q: number, o
   driftRapport(c, q, opts.damages);
   applyServiceSatisfaction(state, c, q, opts.damages);
   c.lastServiceDay = state.day;
-  c.nextDueDay = state.day + c.freq;
+  // a visit a day early keeps the schedule; a late one restarts it from today
+  c.nextDueDay = Math.max(state.day, c.nextDueDay) + c.freq;
   c.lastQ = r1(q);
   if (opts.manual) c.bestManualQ = Math.max(c.bestManualQ, r1(q));
   c.visits += 1;
@@ -320,7 +321,14 @@ function achievementsEvents(state: GameState): string[] {
   return checkAchievements(state).map((id) => `Achievement: ${ACHIEVEMENT_BY_ID[id]?.name ?? id}`);
 }
 
-export function completeManualJob(state: GameState, spec: MowJobSpec, result: MowJobResult): JobOutcome {
+export function completeManualJob(state: GameState, spec: MowJobSpec, raw: MowJobResult): JobOutcome {
+  // measurements come from the 3D scene; never let a bad number into the save
+  const fin = (x: number, d: number) => (Number.isFinite(x) ? x : d);
+  const result: MowJobResult = {
+    ...raw,
+    coverage: clamp(fin(raw.coverage, 0), 0, 1), stripe: clamp(fin(raw.stripe, 0), 0, 1),
+    cutHeightIn: fin(raw.cutHeightIn, spec.targetIn) > 0 ? fin(raw.cutHeightIn, spec.targetIn) : spec.targetIn,
+  };
   const breakdown = computeQuality(spec, result);
   const kit = ownerKit(state);
   const travel = spec.kind === 'practice' ? travelMinutes(state, state.owner.location, 'hq')
@@ -450,14 +458,17 @@ export function autopilotJob(state: GameState, clientId: Id): JobOutcome | { err
     // Breakdown check.
     const rel = kit.mowerSpec.reliability ?? 0.97;
     const mech = hasRole(state, 'mechanic') ? 0.4 : 1;
-    const pBreak = (1 - rel) * (1.5 - (kit.mower?.condition ?? 1)) * mech;
+    const workH = Math.max(0, est - travel - SETUP_MINUTES) / 60;
+    const pBreak = BREAKDOWN_PER_HOUR * (1 - rel) * (1.5 - (kit.mower?.condition ?? 1)) * mech * workH;
     o.minute += travel;
     o.location = houseHoodKey(c.houseId);
     if (rng.chance(pBreak) && kit.mower) {
+      // fixed on the spot: costs money and half an hour, the machine comes back in decent shape
       const cost = Math.round(0.08 * Math.max(kit.mowerSpec.price, 150) * (1.2 - kit.mower.condition));
       addLedger(state, -cost, 'repair', `Breakdown repair, ${kit.mowerSpec.name}`);
+      kit.mower.condition = Math.max(kit.mower.condition, BREAKDOWN_FIXED);
       o.minute = Math.min(DAY_END, o.minute + 30);
-      return { error: `The ${kit.mowerSpec.name} broke down. Repair: $${cost}. The job is still due.` };
+      return { error: `The ${kit.mowerSpec.name} broke down. Fixed for $${cost}. The job is still due.` };
     }
     const cap = kit.mowerSpec.qualityCap ?? 90;
     const perk = hasPerk(state, 'autopilot_pro') ? 5 : 0;
