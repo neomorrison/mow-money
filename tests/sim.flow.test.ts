@@ -230,6 +230,42 @@ describe('playtest round two fixes', () => {
   });
 });
 
+describe('crews explain themselves', () => {
+  it('says when crews work, why nothing moved, and stays home in storms on half pay', () => {
+    const s = sim.newGame({ companyName: 'Crews', color: '#3a3', seed: 77 });
+    s.cash = 50000;
+    s.insured = true;
+    s.hoods.push('home.oak');
+    const houses = sim.housesInHood(s, 'home.maple').filter((h) => h.canKnock).slice(0, 5);
+    for (const h of houses) sim.applyPitchOutcome(s, h.info.id, { result: 'deal', price: 50, freq: 7, addOns: [], trust: 0.5, rounds: 1, minutes: 0, summary: '' });
+    expect(sim.buy(s, 'pickup').ok).toBe(true);
+    expect(sim.buy(s, 'push21').ok).toBe(true);
+    const k = s.candidates.find((c) => c.role === 'operator' || c.role === 'lead') ?? s.candidates[0];
+    k.role = 'operator';
+    expect(sim.hire(s, k.id).ok).toBe(true);
+    const crewId = sim.createCrew(s, 'Alpha').crewId!;
+    const e = s.staff[0];
+    expect(sim.assignToCrew(s, e.id, crewId).ok).toBe(true);
+    const spare = s.items.find((i) => i.specId === 'reel')!;
+    const truck = s.items.find((i) => i.specId === 'pickup')!;
+    // the owner keeps the bike and the gas mower, the crew takes the pickup and the reel
+    s.owner.vehicleUid = s.items.find((i) => i.specId === 'bike')!.uid;
+    expect(sim.setCrewGear(s, crewId, { vehicleUid: truck.uid, mowerUid: spare.uid }).ok).toBe(true);
+    const first = sim.autoDispatch(s);
+    expect(first.message).toMatch(/when you end the day/);
+    const again = sim.autoDispatch(s);
+    expect(again.message).toMatch(/already have every due job|not fit in one day's route|No jobs due/);
+    s.weather.today = 'storm';
+    const plan = sim.crewPlans(s)[0];
+    expect(plan.note).toMatch(/^Storm/);
+    const before = s.cash;
+    sim.endDay(s);
+    const wages = before - s.cash;
+    expect(wages).toBeGreaterThan(0);
+    expect(s.ledger.some((l) => /half pay/.test(l.note))).toBe(true);
+  });
+});
+
 describe('save migration', () => {
   it('lifts old contract prices and wages to the new economy once', () => {
     const s = sim.newGame({ companyName: 'Old', color: '#3a3', seed: 5 });

@@ -5,7 +5,7 @@ import { GrassField, LAWN, HARD, BED, SAND } from './field';
 export interface DeckParams {
   x: number; z: number; prevX: number; prevZ: number; heading: number;
   width: number; length: number;
-  deckIn: number; deckIndex: number;
+  deckIn: number;
   maxGrassIn: number;
   stripeVis: number;           // 0..1 how strongly the cut lays the grass over
   bagActive: boolean;
@@ -98,8 +98,8 @@ export function cutDeck(f: GrassField, p: DeckParams, out: DeckOutcome): void {
         if (hb > out.tallest) out.tallest = hb;
         if (!f.cutOnce[k]) { f.cutOnce[k] = 1; f.uniqueCutCells++; out.newCells++; }
         f.mowerCutCells++;
-        f.cutAreaByDeck[p.deckIndex] += cellA;
-        f.deckIdx[k] = p.deckIndex;
+        f.setCutAt(k, p.deckIn);
+        changedC = true;
         const vol = cellA * rem / 3;       // m2 of full-height clippings
         if (p.bagActive) {
           out.bagAdd += vol;
@@ -124,10 +124,15 @@ export function cutDeck(f: GrassField, p: DeckParams, out: DeckOutcome): void {
             }
           }
         }
-      } else if (f.clump[k] > 0 && p.time - f.newClumpT[k] > 1.2) {
-        // mowing over old clumps again chops them up
-        f.clump[k] = Math.max(0, f.clump[k] - p.dt * 5);
-        changedC = true;
+      } else {
+        // grass already at or under the deck: the pass counts as mowing it at this height (a lower pass
+        // lowers the record; a raised pass never raises it)
+        if (hb <= p.deckIn + 0.01 && (f.cutAt[k] === 0 || p.deckIn < f.cutAt[k])) { f.setCutAt(k, p.deckIn); changedC = true; }
+        if (f.clump[k] > 0 && p.time - f.newClumpT[k] > 1.2) {
+          // mowing over old clumps again chops them up
+          f.clump[k] = Math.max(0, f.clump[k] - p.dt * 5);
+          changedC = true;
+        }
       }
       if (f.leaves[k] > 0) {
         const before = f.leaves[k];
@@ -173,12 +178,16 @@ export function trim(f: GrassField, x: number, z: number, radius: number, deckIn
         out.cut++;
         out.removed += hb - nh;
         if (hb > out.tallest) out.tallest = hb;
-        if (nh <= deckIn + 0.01 && !f.cutOnce[k]) { f.cutOnce[k] = 1; f.uniqueCutCells++; }
+        if (nh <= deckIn + 0.01) {
+          if (!f.cutOnce[k]) { f.cutOnce[k] = 1; f.uniqueCutCells++; }
+          f.setCutAt(k, deckIn);
+        }
         if (f.cutBy[k] !== 1) f.cutBy[k] = 2;
         f.markA(k);
-      } else if (f.cutBy[k] === 0) {
-        f.cutBy[k] = 2;
-        f.markA(k);
+        f.markC(k);
+      } else {
+        if (f.cutAt[k] === 0 || deckIn < f.cutAt[k]) { f.setCutAt(k, deckIn); f.markC(k); }
+        if (f.cutBy[k] === 0) { f.cutBy[k] = 2; f.markA(k); }
       }
     }
   }

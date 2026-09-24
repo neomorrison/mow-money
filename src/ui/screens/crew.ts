@@ -22,7 +22,7 @@ const ROLE_BLURB: Record<StaffRole, string> = {
   lead: 'Runs a crew and drives the truck. +4 quality.',
   sales: 'Knocks doors in an assigned neighborhood.',
   mechanic: 'Sharpens and repairs overnight. Fewer breakdowns.',
-  office: 'Dispatches due jobs to crews every morning.',
+  office: 'Hands your leftover due jobs to crews when you end the day.',
   manager: 'Hires replacements, buys fuel, runs branches.',
 };
 const TRAIT_TIP: Record<string, string> = {
@@ -150,6 +150,7 @@ function crewCard(crew: Crew, s: GameState, plan: CrewPlan | undefined): Raw {
       <div class="ui-row" style="justify-content:space-between"><span class="ui-small ui-strong">Today: ${plural(plan.jobs.length, 'job')}</span><span class="ui-small ui-muted">${duration(plan.minutes)} of ${duration(plan.capacity)}</span></div>
       ${bar(load, { color: load > 1 ? 'var(--ui-red)' : 'var(--ui-g-500)' })}
       ${plan.problem ? html`<div class="ui-note ui-note--warn" style="margin-top:8px">${raw(icon('alert'))}${plan.problem}</div>` : ''}
+      ${plan.note ? html`<div class="ui-tiny ui-muted ui-strong" style="margin-top:6px">${plan.note}</div>` : ''}
     </div>` : ''}
     <div class="ui-label">Members</div>
     <div class="ui-col" style="gap:6px;margin:6px 0 10px">
@@ -205,7 +206,7 @@ function render(): Raw {
   ` : ''}
   ${tab === 'crews' ? html`
     <div class="ui-row ui-row--wrap" style="margin-bottom:16px;gap:12px">
-      <p class="ui-muted ui-strong ui-grow">A crew needs a vehicle, a mower and a lead or operator. Crews work 600 minutes a day.</p>
+      <p class="ui-muted ui-strong ui-grow">A crew needs a vehicle, a mower and a lead or operator. Give it jobs from their cards on the Today screen (or with "Hand my due jobs to crews"), and it mows up to 10 hours of them when you end the day. Crews stay home on Sundays and in storms.</p>
       <button class="ui-btn ui-btn--primary" data-click="newCrew">${raw(icon('plus'))}New crew</button>
     </div>
     ${s.crews.length ? html`<div class="ui-grid ui-grid--auto" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))">${s.crews.map((c) => crewCard(c, s, plans.find((p) => p.crewId === c.id)))}</div>`

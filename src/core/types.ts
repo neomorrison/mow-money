@@ -595,4 +595,4 @@ export interface OwnerLevelInfo { level: number; xp: number; xpForNext: number; 
 
 export interface ValuationBreakdown { total: number; annualProfit: number; multiple: number; bookValue: number; cash: number; debt: number; retention: number }
 
-export interface CrewPlan { crewId: Id; jobs: JobTicket[]; minutes: number; capacity: number; ready: boolean; problem: string }
+export interface CrewPlan { crewId: Id; jobs: JobTicket[]; minutes: number; capacity: number; ready: boolean; problem: string; note?: string }

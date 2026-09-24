@@ -156,7 +156,7 @@ Q = min(mower.qualityCap, Qraw * (0.88 + 0.12 * sharpness))
 clamped to [0, 100]
 ```
 
-Coverage counts lawn cells whose final height is at most the deck height used + 0.5 in, so raising the deck on an overgrown lawn trades the stress penalty for the height mismatch penalty (and an easier next visit). Clients state their preferred height `targetIn` (2.5 to 3.5 in residential, 1.5 to 2.5 commercial, 0.5 on golf fairways).
+Coverage counts lawn cells whose final height is at most the deck height they were cut (or mowed over) at + 0.5 in; a pass over grass already under the deck counts at that deck (a lower pass lowers the record, a raised one never raises it). `cutHeight` is the deck height recorded for the most lawn cells, so sweeping the lawn with the deck raised out of the way scores as a cut at that height. Cells the mower never reached are held to `min(cutHeight, targetIn)`, so raising the deck and walking away does not count long grass as mowed. Changing the deck mid-job therefore never un-mows grass already cut, but two heights side by side still cost evenness. Edges use the same rule over edge cells, and the minimap and the missed-spot flash (H) show exactly the cells coverage counts as missed. Raising the deck on an overgrown lawn trades the stress penalty for the height mismatch penalty (and an easier next visit); the in-job tip suggests one notch up only early in the job and only while it stays within half an inch of `targetIn`. Clients state their preferred height `targetIn` (2.5 to 3.5 in residential, 1.5 to 2.5 commercial, 0.5 on golf fairways).
 
 **Stripes are a bonus, never a requirement.** The bonus is added after the mower's quality cap, so good stripes lift a job past what the gear alone allows. The stripe score only looks at open lawn (the edge band around beds, trees and walls is ignored), accepts passes within 20 degrees of the main axis and bands up to 2.4 deck widths, and is remapped so an honest back-and-forth pattern scores full marks. Gear adds up to a quarter (`score * (0.75 + 0.25 * stripeStrength)`). Help for players: lane assist (steering settles onto the lot axes when no turn is held), lane guides (faint chalk lines on uncut grass one deck width apart), and auto stripes (the Striping Roller Kit or the Straight Lines perk lay alternating bands by position, however the mower is driven).
 
@@ -262,10 +262,10 @@ Roles, market wage per hour for skill `s` in [0, 100]:
 | lead | 25 + 0.20 s | crew lead, +4 quality, can drive the truck |
 | sales | 22 + 0.17 s + 8 percent commission on first-month revenue | knocks doors in an assigned neighborhood |
 | mechanic | 28 + 0.17 s | sharpens and repairs overnight, breakdowns x0.4 |
-| office | 24 + 0.14 s | dispatches due jobs to crews every morning, +2 percent collected revenue |
+| office | 24 + 0.14 s | hands the owner's leftover due jobs to crews at End Day, +2 percent collected revenue |
 | manager | 42 + 0.28 s | Operations Manager: hires replacements, buys fuel, runs branches |
 
-Paid 10 hours per workday. Crews are a vehicle, a mower, a trimmer and a blower plus one or more members, one of them a lead or the owner. Crew daily capacity is 600 minutes minus travel, jobs sorted by overdue first, then by neighborhood.
+Paid 10 hours per workday; on storm days outside winter crew members and sales reps stay home on half pay. Crews are a vehicle, a mower, a trimmer and a blower plus one or more members, one of them a lead or the owner. Crew daily capacity is 600 minutes minus travel, jobs sorted by overdue first, then by neighborhood.
 
 Morale drifts 10 percent per day toward `60 + 60 * (wage / marketWage - 1) + 10 * recentRaise` (+10 Motivator, +5 Loyal). Weekly quit chance `0.25 / (1 + exp((morale - 35) / 6))`. No-show chance per day `(1 - reliability) * 0.5 * (1 + max(0, 50 - morale) / 25)`. Nobody works for less than 80 percent of their market wage. Skill grows `(100 - skill) * 0.0005` per job (x2 with the Trainer perk; sales reps grow 4x that per signed client), so a crew member closes about a third of the gap to 100 in a busy season. Wages follow skill, so good people ask for raises.
 

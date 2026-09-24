@@ -68,7 +68,7 @@ export class Blades {
           uniform vec3 uCutA; uniform vec3 uCutB; uniform vec3 uLongA; uniform vec3 uLongB; uniform vec3 uTip;
           uniform vec4 uGuide; uniform float uGuideOn;
           attribute vec2 aOffset; attribute vec4 aRand;
-          varying float vT; varying vec2 vLean; varying float vCut; varying float vH; varying vec3 vMmWorld; varying float vRand; varying vec2 vDebris; varying vec3 vLawn; varying float vLeaf;
+          varying float vT; varying vec2 vLean; varying float vCut; varying float vH; varying vec3 vMmWorld; varying float vRand; varying vec2 vDebris; varying vec3 vLawn; varying float vLeaf; varying float vDone;
           ${NOISE_GLSL}
           ${LAWN_GLSL}
           ${GUIDE_GLSL}`)
@@ -96,7 +96,7 @@ export class Blades {
           vec2 shagLean = (vec2(mmHash(bp * 3.1), mmHash(bp * 5.7)) - 0.5) * 0.9 * (1.0 - cut);
           vec2 bend = lean * 0.75 + shagLean + vec2(0.7, 0.35) * wind * 0.18;
           float t = position.y;
-          vT = t; vLean = lean; vCut = cut; vH = hIn; vRand = aRand.w; vDebris = C.rb;
+          vT = t; vLean = lean; vCut = cut; vH = hIn; vRand = aRand.w; vDebris = C.rb; vDone = C.a;
           // per-blade lawn color (same function as the ground), evaluated once per vertex
           vLawn = mmGuide(mmLawn(bp, hIn, lean, cut, vec3(bp.x, 0.0, bp.y) - cameraPosition), bp, cut);
           // some instances become fallen leaves resting on top of the grass while leaves are down
@@ -124,7 +124,7 @@ export class Blades {
         .replace('#include <common>', /* glsl */`#include <common>
           uniform float uStripeGain; uniform float uDull; uniform float uWet; uniform float uFlash; uniform float uDeck; uniform float uTime;
           uniform vec3 uCutA; uniform vec3 uCutB; uniform vec3 uLongA; uniform vec3 uLongB; uniform vec3 uTip;
-          varying float vT; varying vec2 vLean; varying float vCut; varying float vH; varying vec3 vMmWorld; varying float vRand; varying vec2 vDebris; varying vec3 vLawn; varying float vLeaf;`)
+          varying float vT; varying vec2 vLean; varying float vCut; varying float vH; varying vec3 vMmWorld; varying float vRand; varying vec2 vDebris; varying vec3 vLawn; varying float vLeaf; varying float vDone;`)
         .replace('#include <normal_fragment_begin>', /* glsl */`
           // blades are double sided but always lit as if facing up (no dark back faces)
           float faceDirection = gl_FrontFacing ? 1.0 : -1.0;
@@ -144,7 +144,7 @@ export class Blades {
             col = lc < 0.33 ? vec3(0.86, 0.36, 0.1) : lc < 0.66 ? vec3(0.92, 0.64, 0.18) : vec3(0.62, 0.3, 0.13);
             col *= 0.85 + 0.3 * fract(vRand * 91.0);
           }
-          float missed = step(uDeck + 0.5, vH) * (1.0 - vLeaf);
+          float missed = step(uDeck + 0.5, vH) * (1.0 - vLeaf) * (1.0 - step(0.5, vDone));
           col = mix(col, vec3(1.0, 0.55, 0.12), missed * uFlash * (0.55 + 0.45 * sin(uTime * 9.0)));
           col *= 1.0 - uWet * 0.12;
           vec4 diffuseColor = vec4(col, opacity);

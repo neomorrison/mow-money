@@ -128,8 +128,11 @@ export class Hud {
     const qc = el('div', 'mmj-card mmj-q');
     const row = el('div', 'row');
     const left = el('div');
-    left.append(el('div', 'lbl', 'Quality'), this.q.big, this.q.track);
-    row.append(left, this.q.stars);
+    left.append(el('div', 'lbl', 'Quality'), this.q.big);
+    // the projection sits under the stars so the card height never changes
+    const side = el('div', 'side');
+    side.append(this.q.stars, this.q.track);
+    row.append(left, side);
     qc.append(row, this.q.bars);
     for (const [key, label] of [['cov', 'Coverage'], ['trim', 'Edges'], ['stripe', 'Stripes'], ['clean', 'Cleanup']] as const) {
       const b = el('div', 'mmj-bar');
@@ -198,7 +201,9 @@ export class Hud {
     this.prompt.style.cursor = 'pointer';
 
     const joyHint = el('div', 'mmj-joyhint', 'Drag here to drive');
-    this.ui.append(client, this.clockBox, qc, mm, st, btns, this.toasts, this.hint, this.prompt, joyHint);
+    const rightCol = el('div', 'mmj-right');
+    rightCol.append(qc, mm);
+    this.ui.append(client, this.clockBox, rightCol, st, btns, this.toasts, this.hint, this.prompt, joyHint);
     this.root.append(this.ui, this.joyEl, this.flashEl, this.modal, this.loading);
     if (spec.weather === 'heat') this.root.insertBefore(el('div', 'mmj-heat'), this.ui);
     host.appendChild(this.root);
@@ -218,7 +223,8 @@ export class Hud {
   /** Switch to the compact layout on small screens. */
   layout() {
     const w = this.root.clientWidth || window.innerWidth, hgt = this.root.clientHeight || window.innerHeight;
-    this.root.classList.toggle('compact', w < 760 || hgt < 520);
+    // the full right column (quality card and minimap) ends near 395px; the button stack takes the bottom 174px
+    this.root.classList.toggle('compact', w < 760 || hgt < 580);
     this.root.classList.toggle('short', hgt < 480);
   }
 
@@ -296,7 +302,7 @@ export class Hud {
     const key = show ? '1' : '0';
     if (this.last.prompt === key) return;
     this.last.prompt = key;
-    this.prompt.innerHTML = `${ICON.bag}<span>Empty the bag${this.touch ? '' : ' <kbd style="font:inherit;background:#f3e6c8;border-radius:6px;padding:0 6px">E</kbd>'}</span>`;
+    this.prompt.innerHTML = `${ICON.bag}<span>Empty the bag${this.touch ? '' : ' <kbd style="font:inherit;background:#f3e6c8;border-radius:6px;padding:0 6px">R</kbd>'}</span>`;
     this.prompt.classList.toggle('show', show);
   }
 
@@ -330,7 +336,7 @@ export class Hud {
       <span><kbd>Shift</kbd></span><span>Slow, precise driving</span>
       <span><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span><span>Mower, trimmer, blower</span>
       <span><kbd>Q</kbd> <kbd>E</kbd></span><span>Lower or raise the deck</span>
-      <span><kbd>E</kbd> at your vehicle</span><span>Empty the bag</span>
+      <span><kbd>R</kbd> at your vehicle</span><span>Empty the bag</span>
       <span><kbd>H</kbd></span><span>Flash missed spots</span>
       <span><kbd>V</kbd> and mouse drag</span><span>Camera view and orbit, wheel to zoom</span>
       <span><kbd>F</kbd> <kbd>Esc</kbd></span><span>Finish, pause</span></div>`;

@@ -12,7 +12,7 @@ import { ModelKit } from './models';
 import { World } from './world';
 import { Body, buildColliders, resolve, type Colliders, type DriveInput, type VehicleParams, wrapAngle } from './mower';
 import { cutDeck, makeDeckOutcome, trim, blow, type DeckParams, type TrimOutcome, type BlowOutcome } from './cutting';
-import { computeResult, estimateQuality, liveResult, projectedResult, type ScoreState } from './scoring';
+import { cellsByDeck, computeResult, estimateQuality, liveResult, mostUsedDeck, projectedResult, unreachedRef, type ScoreState } from './scoring';
 import { Hud } from './hud';
 import { Input, type Action } from './input';
 import { CameraRig } from './camera';
@@ -27,6 +27,9 @@ import type { MowCallbacks } from './index';
 const VEHICLE_NAME: Record<string, string> = {
   veh_bike: 'bike', veh_pickup: 'truck', veh_pickup_trailer: 'truck', veh_crewtruck: 'truck', veh_boxtruck: 'truck',
 };
+
+/** Share of the lawn cut before a deck change counts as mixing heights (the long-grass tip stops here too). */
+const EARLY_SHARE = 0.1;
 
 export class MowJob {
   // setup
@@ -65,6 +68,7 @@ export class MowJob {
   // job state
   tool: 1 | 2 | 3 = 1;
   deckIdx = 0;
+  private deckMoved = false;
   private deckHeights: number[];
   private bag = 0;
   private bagCap = 0;
@@ -152,7 +156,7 @@ export class MowJob {
     this.tutorial = new Tutorial(spec.tutorial);
     this.deckP = {
       x: 0, z: 0, prevX: 0, prevZ: 0, heading: 0, width: m.deckWidth ?? 1, length: Math.min(0.7, Math.max(0.4, (m.deckWidth ?? 1) * 0.4)),
-      deckIn: 3, deckIndex: 0, maxGrassIn: m.maxGrassIn ?? 6, stripeVis: this.stripeVis, bagActive: false, mulching: !!m.mulching,
+      deckIn: 3, maxGrassIn: m.maxGrassIn ?? 6, stripeVis: this.stripeVis, bagActive: false, mulching: !!m.mulching,
       discharge: m.id === 'reel' || m.id === 'gangreel' ? 0 : m.mulching ? 0.35 : 1, wet: spec.wet, frame: 0, time: 0, dt: 0,
       autoStripe: !!spec.autoStripe, bandW: Math.max(0.8, m.deckWidth ?? 1),
     };
@@ -270,7 +274,7 @@ export class MowJob {
     this.input.onAnyInput = () => audio.unlock();
     this.minimap = new Minimap(this.hud.minimap, this.field);
     this.minimap.setHazards(L.obstacles.filter((o) => !o.solid && (o.kind === 'gnome' || o.kind === 'sprinkler' || o.kind === 'ball')));
-    this.minimap.redraw(this.deckHeights[this.deckIdx], false);
+    this.minimap.redraw(this.refDeck(), false);
 
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(this.hud.root);
@@ -354,16 +358,25 @@ export class MowJob {
     const n = Math.max(0, Math.min(this.deckHeights.length - 1, this.deckIdx + d));
     if (n === this.deckIdx) { this.hud.toast(d > 0 ? 'Deck is at its highest.' : 'Deck is at its lowest.', 'warn'); return; }
     this.deckIdx = n;
-    this.u.uDeck.value = this.deckHeights[n];
+    this.deckMoved = true;
     audio.play('click', { volume: 0.4, rate: d > 0 ? 1.1 : 0.9 });
+    this.u.uDeck.value = this.refDeck();
     const h = this.deckHeights[n];
     const off = Math.abs(h - this.spec.targetIn);
-    this.hud.toast(`Deck ${h} in${off > 0.5 ? (h > this.spec.targetIn ? ', higher than the client wants' : ', lower than the client wants') : ''}`, off > 0.5 ? 'warn' : '');
+    // grass already cut stays mowed; cutting the rest at another height only makes the lawn less even
+    const counts = cellsByDeck(this.field, this.deckHeights);
+    let other = 0;
+    for (let i = 0; i < counts.length; i++) if (i !== n) other += counts[i];
+    const mixed = other > this.field.lawnCells * EARLY_SHARE;
+    const note = off > 0.5 ? (h > this.spec.targetIn ? ', higher than the client wants' : ', lower than the client wants') : mixed ? '. Mixed heights look uneven' : '';
+    this.hud.toast(`Deck ${h} in${note}`, off > 0.5 ? 'warn' : '');
     this.statT = 0;
   }
 
   private toggleCamera() { this.rig.toggle(); }
-  private flashMissed() { this.flashT = 2; this.flashed = true; this.miniT = 0; }
+  private flashMissed() { this.flashT = 2; this.flashed = true; this.miniT = 0; this.u.uDeck.value = this.refDeck(); }
+  /** Height grass the mower never reached is measured against (see computeResult in scoring.ts). */
+  private refDeck(): number { return unreachedRef(mostUsedDeck(this.field, this.deckHeights, this.deckIdx), this.spec.targetIn); }
 
   private requestFinish() {
     if (!this.started || this.ended) return;
@@ -467,7 +480,10 @@ export class MowJob {
         break;
       }
       case 'deckDown': this.changeDeck(-1); break;
-      case 'deckUp': if (!this.tryEmptyBag()) this.changeDeck(1); break;
+      case 'deckUp': this.changeDeck(1); break;
+      case 'emptyBag': if (!this.tryEmptyBag() && this.bagCap > 0) this.hud.toast(this.bag <= this.bagCap * 0.02 ? 'The bag is empty.' : 'Drive up to your vehicle to empty the bag.', 'warn'); break;
+      // the pad has few buttons: the right bumper empties the bag at the vehicle and raises the deck elsewhere
+      case 'padUp': if (!this.tryEmptyBag()) this.changeDeck(1); break;
       case 'missed': this.flashMissed(); break;
       case 'camera': this.toggleCamera(); break;
       case 'finish': this.requestFinish(); break;
@@ -562,7 +578,6 @@ export class MowJob {
     const m = this.mower, p = this.deckP, spec = this.spec;
     p.x = m.x; p.z = m.z; p.prevX = m.prevX; p.prevZ = m.prevZ; p.heading = m.heading;
     p.deckIn = this.deckHeights[this.deckIdx];
-    p.deckIndex = this.deckIdx;
     p.bagActive = this.bagCap > 0 && this.bag < this.bagCap;
     p.frame = this.frame; p.time = this.active; p.dt = dt;
     const o = this.deck;
@@ -914,7 +929,12 @@ export class MowJob {
     this.hudT -= dt;
     if (this.hudT <= 0) { this.hudT = 0.1; this.hud.update(this.hudState()); }
     this.miniT -= dt;
-    if (this.miniT <= 0) { this.miniT = 0.5; this.minimap.redraw(this.deckHeights[this.deckIdx], this.flashT > 0 && Math.sin(this.u.uTime.value * 9) > -0.3, this.tool === 3 || this.flashT > 0); }
+    if (this.miniT <= 0) {
+      this.miniT = 0.5;
+      const ref = this.refDeck();
+      this.u.uDeck.value = ref;
+      this.minimap.redraw(ref, this.flashT > 0 && Math.sin(this.u.uTime.value * 9) > -0.3, this.tool === 3 || this.flashT > 0);
+    }
     this.miniDrawT -= dt;
     if (this.miniDrawT <= 0) {
       this.miniDrawT = 1 / 15;
@@ -936,15 +956,18 @@ export class MowJob {
   private softHint(): string | null {
     const r = this.lastResult;
     if (!r) return null;
-    if (this.bagCap > 0 && this.bag >= this.bagCap) return `Bag full. Drive to your ${VEHICLE_NAME[this.spec.vehicleModel || 'veh_bike'] ?? 'vehicle'} at the curb and press ${this.touch ? 'the bag prompt' : 'E'}.`;
-    const cur = this.deckHeights[this.deckIdx];
-    if (this.lastQ && this.lastQ.penalties.some((p) => p.label === 'Grass was scalped' || p.label.startsWith('Lawn stressed')) && this.deckIdx < this.deckHeights.length - 1)
-      return `Taking off too much at once stresses the lawn. Raise the deck (${this.touch ? 'up arrow' : 'E'}).`;
+    if (this.bagCap > 0 && this.bag >= this.bagCap) return `Bag full. Drive to your ${VEHICLE_NAME[this.spec.vehicleModel || 'veh_bike'] ?? 'vehicle'} at the curb and press ${this.touch ? 'the bag prompt' : 'R'}.`;
+    // Long grass: suggest one notch up, early and only while it stays close to what the client asked for.
+    // Changing the deck halfway through makes the lawn uneven, so the tip does not keep asking.
+    const stress = this.lastQ?.penalties.find((p) => p.label === 'Grass was scalped' || p.label.startsWith('Lawn stressed'));
+    const up = this.deckHeights[this.deckIdx + 1];
+    const early = this.field.uniqueCutCells <= this.field.lawnCells * EARLY_SHARE;
+    if (stress && stress.points >= 2 && !this.deckMoved && early && up !== undefined && up <= this.spec.targetIn + 0.5)
+      return `Long grass. Raise the deck one notch (${this.touch ? 'up arrow' : 'E'}) to take less off at once.`;
     if (this.deck.pushedOver > 20) return 'This grass is too tall for the mower. Make a second pass.';
     if (r.coverage > 0.93 && r.trim < 0.7 && this.spec.trimmer && this.tool === 1) return `Edges left. Trim along beds, walls and trees (${this.touch ? 'trimmer' : '2'}).`;
     if (this.tool === 3 && r.cleanup < 0.97) return 'Glowing orange spots still need clearing. Blow them onto the lawn.';
     if (r.coverage > 0.93 && r.cleanup < 0.8 && this.spec.blower && this.tool !== 3) return `Clippings on the concrete. Blow them back onto the lawn (${this.touch ? 'blower' : '3'}).`;
-    void cur;
     return null;
   }
 
@@ -972,7 +995,7 @@ export class MowJob {
   /** Current measurements and the quality preview (`live`: projected score that grows as you mow). */
   measure(completed: boolean, live = false): MowJobResult {
     const s: ScoreState = {
-      field: this.field, deckHeights: this.deckHeights, deckIndex: this.deckIdx, deckWidth: this.spec.mower.deckWidth ?? 1,
+      field: this.field, deckHeights: this.deckHeights, deckIndex: this.deckIdx, targetIn: this.spec.targetIn, deckWidth: this.spec.mower.deckWidth ?? 1,
       stripeStrength: this.stripeStrength, damages: this.damages, realSeconds: this.active, timeScale: this.spec.timeScale,
       burnsFuel: (this.spec.mower.fuelGalPerHr ?? 0) > 0, wearMult: this.spec.mower.wearMult ?? 1, mowerAreaM2: this.mowerArea,
     };
@@ -1043,7 +1066,11 @@ export class MowJob {
   /** Trim every edge cell instantly (headless scoring checks). */
   trimAllEdges() {
     const f = this.field, d = this.deckHeights[this.deckIdx];
-    for (let k = 0; k < f.n; k++) if (f.edge[k] && f.h[k] > d) { f.h[k] = d; if (!f.cutOnce[k]) { f.cutOnce[k] = 1; f.uniqueCutCells++; } if (f.cutBy[k] !== 1) f.cutBy[k] = 2; f.markA(k); }
+    for (let k = 0; k < f.n; k++) {
+      if (!f.edge[k]) continue;
+      if (f.h[k] > d) { f.h[k] = d; if (!f.cutOnce[k]) { f.cutOnce[k] = 1; f.uniqueCutCells++; } if (f.cutBy[k] !== 1) f.cutBy[k] = 2; f.setCutAt(k, d); f.markA(k); f.markC(k); }
+      else if (f.cutAt[k] === 0 || d < f.cutAt[k]) { f.setCutAt(k, d); f.markC(k); }
+    }
   }
   debugState() {
     const r = this.lastResult ?? this.measure(true);

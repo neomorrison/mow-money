@@ -27,7 +27,7 @@ export const CONTROLS: ControlRow[] = [
   { action: 'Precise driving', keys: 'Hold Shift', touch: 'Short drags', pad: 'Small stick moves' },
   { action: 'Deck height', keys: 'Q lower, E raise', touch: 'Deck buttons', pad: 'Bumpers' },
   { action: 'Switch tool', keys: '1 mower, 2 trimmer, 3 blower', touch: 'Tool buttons', pad: 'A cycles, X mower' },
-  { action: 'Empty the bag', keys: 'E at your vehicle', touch: 'Bag prompt', pad: 'Right bumper at your vehicle' },
+  { action: 'Empty the bag', keys: 'R at your vehicle', touch: 'Bag prompt', pad: 'Right bumper at your vehicle' },
   { action: 'Missed spots', keys: 'H', touch: 'Eye button', pad: 'B' },
   { action: 'Camera', keys: 'V, drag to orbit, wheel to zoom', touch: 'Camera button, drag right side, pinch', pad: 'Y, right stick' },
   { action: 'Pause', keys: 'Esc or P', touch: 'Pause button', pad: 'Start' },

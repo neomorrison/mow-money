@@ -155,7 +155,8 @@ function groundFragment(): string {
       lawn = mix(lawn, vec3(0.26, 0.36, 0.13), smoothstep(1.0 - cr * 0.7, 1.02 - cr * 0.7, cn) * 0.9);
     }
     lawn = mmGuide(lawn, wp, A.a);
-    float missed = step(uDeck + 0.5, h);
+    // uDeck is the deck used for most of the lawn; C.a marks cells already cut at their own deck
+    float missed = step(uDeck + 0.5, h) * (1.0 - step(0.5, C.a));
     lawn = mix(lawn, vec3(1.0, 0.55, 0.12), missed * uFlash * (0.55 + 0.45 * sin(uTime * 9.0)));
     col += lawn * B.r;
   }

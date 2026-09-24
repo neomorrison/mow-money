@@ -7,6 +7,7 @@ export interface ScoreState {
   field: GrassField;
   deckHeights: number[];
   deckIndex: number;          // current setting (used when nothing was cut yet)
+  targetIn?: number;          // client's height: grass the mower never reached is held to it at most
   deckWidth: number;
   stripeStrength: number;     // mower stripe + kit + perk, before clamping
   damages: Damage[];
@@ -17,10 +18,28 @@ export interface ScoreState {
   mowerAreaM2: number;        // area cut by the mower (for blade wear)
 }
 
-/** Deck height (inches) used for the most cut area. */
-export function mostUsedDeck(f: GrassField, heights: number[], current: number): number {
-  let best = -1, bestA = 0;
-  for (let i = 0; i < heights.length; i++) if (f.cutAreaByDeck[i] > bestA) { bestA = f.cutAreaByDeck[i]; best = i; }
+/**
+ * Lawn cells per deck setting, counted by the height each cell was last cut or mowed over at (`cutAt`), the
+ * same record coverage uses. A deck pass that cuts nothing still counts at its height, so a sweep with the
+ * deck raised out of the way is scored as a cut at that height.
+ */
+export function cellsByDeck(f: GrassField, heights: number[], out = new Float64Array(heights.length)): Float64Array {
+  for (let i = 0; i < heights.length; i++) out[i] = f.cellsAt(heights[i]);
+  return out;
+}
+
+/**
+ * Height grass the mower never reached is measured against: the deck used for most of the lawn, but never
+ * above the client's height, so raising the deck and walking away does not count the lawn as mowed.
+ */
+export function unreachedRef(cutH: number, targetIn?: number): number {
+  return targetIn === undefined ? cutH : Math.min(cutH, targetIn);
+}
+
+/** Deck height (inches) the most lawn was cut at, or the current setting before anything was cut. */
+export function mostUsedDeck(f: GrassField, heights: number[], current: number, counts = cellsByDeck(f, heights)): number {
+  let best = -1, bestN = 0;
+  for (let i = 0; i < heights.length; i++) if (counts[i] > bestN) { bestN = counts[i]; best = i; }
   return best < 0 ? heights[current] : heights[best];
 }
 
@@ -126,15 +145,20 @@ export function stripePattern(f: GrassField, deckWidth: number): { score: number
 export function computeResult(s: ScoreState, completed: boolean, withStripe = true): MowJobResult {
   const f = s.field;
   const cutH = mostUsedDeck(f, s.deckHeights, s.deckIndex);
-  const limit = cutH + 0.5;
+  // A cell counts as mowed when it is within half an inch of the deck it was cut (or mowed over) at, so
+  // changing the deck mid-job never un-mows grass that was already cut. Cells the mower never reached are
+  // held to the deck used for most of the lawn (at most the client's height). Mixed heights still cost
+  // evenness and the height check.
+  const ref = unreachedRef(cutH, s.targetIn);
   let lawn = 0, covered = 0, sum = 0, sum2 = 0, edges = 0, edgesCut = 0, clumps = 0, remSum = 0, remN = 0;
   for (let k = 0; k < f.n; k++) {
     if (f.surf[k] !== LAWN) continue;
     lawn++;
     const h = f.h[k];
     sum += h; sum2 += h * h;
-    if (h <= limit) covered++;
-    if (f.edge[k]) { edges++; if (h <= limit) edgesCut++; }
+    const ok = h <= f.limitAt(k, ref);
+    if (ok) covered++;
+    if (f.edge[k]) { edges++; if (ok) edgesCut++; }
     if (f.clump[k] > 0.15) clumps++;
     if (f.cutOnce[k]) { remSum += 1 - h / f.h0[k]; remN++; }
   }
