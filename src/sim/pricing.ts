@@ -1,6 +1,6 @@
 // Market prices (docs/DESIGN.md section 6).
 import type { AddOn, Frequency, HoodKind } from '../core/types';
-import { ADDON_MULT, BIWEEKLY_MULT, KIND_MULT, SQFT_PER_M2 } from './constants';
+import { ADDON_MULT, BIWEEKLY_MULT, KIND_MULT, PRICE_SCALE, SQFT_PER_M2 } from './constants';
 
 export function toSqft(m2: number): number {
   return m2 * SQFT_PER_M2;
@@ -8,7 +8,7 @@ export function toSqft(m2: number): number {
 
 /** Base weekly fair price for a lawn of `sqft` square feet. */
 export function fairSqft(sqft: number): number {
-  return 20 + 0.052 * Math.pow(Math.max(0, sqft), 0.725);
+  return PRICE_SCALE * (20 + 0.052 * Math.pow(Math.max(0, sqft), 0.725));
 }
 
 export function fairPrice(lawnM2: number, freq: Frequency = 7, kind: HoodKind = 'residential'): number {

@@ -305,6 +305,12 @@
 .ui-mini--tip { background: #fff1f4; }
 .ui-mini--tip .ui-icon { color: #d9487f; }
 .ui-mini--cost .ui-icon, .ui-mini--cost b { color: var(--ui-red); }
+.ui-tipparts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.ui-tipparts .ui-chip { background: #fff1f4; color: #a8325e; }
+.ui-talk { margin-top: 14px; }
+.ui-talk__tones { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.ui-talk__line { margin-top: 6px; padding: 8px 12px; border-radius: 12px; background: #fff; border: 1px solid var(--ui-line); font-size: 14px; }
+.ui-talk__line--you { background: var(--ui-g-50, #eef7ea); margin-left: 24px; }
 .ui-levelup {
   display: flex; align-items: center; gap: 12px; margin-bottom: 18px; padding: 14px 18px; border-radius: 20px;
   background: linear-gradient(100deg, var(--ui-g-700), var(--ui-g-600)); color: #fff; box-shadow: var(--ui-shadow);

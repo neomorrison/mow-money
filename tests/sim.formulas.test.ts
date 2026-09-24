@@ -11,8 +11,8 @@ import type { MowJobResult, MowJobSpec, Season } from '../src/core/types';
 
 describe('prices (DESIGN 6)', () => {
   it('matches the documented fair price examples', () => {
-    for (const [sqft, usd] of [[3800, 41], [11000, 64], [22000, 93], [43560, 140]]) {
-      expect(Math.abs(fairSqft(sqft) - usd)).toBeLessThan(0.6);
+    for (const [sqft, usd] of [[3800, 52.7], [11000, 83.6], [22000, 121.2], [43560, 182]]) {
+      expect(Math.abs(fairSqft(sqft) - usd)).toBeLessThan(1);
     }
   });
   it('applies biweekly and commercial multipliers', () => {
@@ -97,14 +97,18 @@ describe('quality (DESIGN 9)', () => {
     expect(sim.computeQuality(spec(), result()).q).toBe(100);
   });
   it('coverage is cubed', () => {
-    expect(sim.computeQuality(spec(), result({ coverage: 0.9 })).q).toBeCloseTo(86.5, 0);
+    expect(sim.computeQuality(spec(), result({ coverage: 0.9, stripe: 0 })).q).toBeCloseTo(85.4, 0);
   });
-  it('stripes only count when the client wants them', () => {
-    expect(sim.computeQuality(spec(), result({ coverage: 0.9, stripe: 0.2 })).q).toBeCloseTo(83.5, 0);
-    expect(sim.computeQuality(spec({ wantsStripes: true }), result({ coverage: 0.9, stripe: 0.2 })).q).toBeCloseTo(78.5, 0);
+  it('stripes are a bonus, never a penalty', () => {
+    const none = sim.computeQuality(spec({ wantsStripes: true }), result({ coverage: 0.9, stripe: 0 })).q;
+    expect(none).toBeCloseTo(sim.computeQuality(spec(), result({ coverage: 0.9, stripe: 0 })).q, 5);
+    expect(sim.computeQuality(spec(), result({ coverage: 0.9, stripe: 0.5 })).q).toBeCloseTo(none + 2.5, 0);
+    expect(sim.computeQuality(spec({ wantsStripes: true }), result({ coverage: 0.9, stripe: 0.5 })).q).toBeCloseTo(none + 4, 0);
+    // only the paid add-on notices missing stripes
+    expect(sim.computeQuality(spec({ premiumStripes: true }), result({ coverage: 0.9, stripe: 0 })).q).toBeCloseTo(none - 4, 0);
   });
   it('applies stress, wet, height and damage penalties with readable labels', () => {
-    const b = sim.computeQuality(spec({ wet: true }), result({ removedFraction: 0.5, cutHeightIn: 4, damages: [{ kind: 'gnome', label: 'Gnome', points: 4, cost: 25 }] }));
+    const b = sim.computeQuality(spec({ wet: true }), result({ stripe: 0, removedFraction: 0.5, cutHeightIn: 4, damages: [{ kind: 'gnome', label: 'Gnome', points: 4, cost: 25 }] }));
     // 100 - 6 stress - 6 wet - 4 height - 4 gnome
     expect(b.q).toBeCloseTo(80, 5);
     const labels = b.penalties.map((p) => p.label);
@@ -112,13 +116,16 @@ describe('quality (DESIGN 9)', () => {
     expect(labels).toContain('Wet grass');
     expect(labels).toContain('Cut 1.0 in too high');
     expect(labels).toContain('Ran over the garden gnome');
-    expect(b.parts.map((p) => p.label)).toEqual(['Coverage', 'Evenness', 'Edges', 'Cleanup', 'Stripes', 'No clumps']);
+    expect(b.parts.map((p) => p.label)).toEqual(['Coverage', 'Evenness', 'Edges', 'Cleanup', 'No clumps']);
+    expect(sim.computeQuality(spec(), result()).parts.map((p) => p.label)).toContain('Stripe bonus');
   });
   it('the mower quality cap and dull blades limit the score', () => {
-    const capped = sim.computeQuality(spec({ mower: EQUIPMENT_BY_ID['push21'] }), result());
+    const capped = sim.computeQuality(spec({ mower: EQUIPMENT_BY_ID['push21'] }), result({ stripe: 0 }));
     expect(capped.q).toBe(85);
     expect(capped.capped).toBe(true);
-    expect(sim.computeQuality(spec({ sharpness: 0 }), result()).q).toBeCloseTo(88, 5);
+    // stripes lift a job past the mower's cap
+    expect(sim.computeQuality(spec({ mower: EQUIPMENT_BY_ID['push21'] }), result()).q).toBe(90);
+    expect(sim.computeQuality(spec({ sharpness: 0 }), result({ stripe: 0 })).q).toBeCloseTo(88, 5);
   });
   it('never leaves 0..100 and survives garbage input', () => {
     const b = sim.computeQuality(spec(), result({ coverage: NaN, removedFraction: 5, damages: Array(30).fill({ kind: 'fence', label: '', points: 5, cost: 0 }) }));
@@ -128,11 +135,12 @@ describe('quality (DESIGN 9)', () => {
 
 describe('staff and finance formulas', () => {
   it('market wages follow the table', () => {
-    expect(sim.marketWage('operator', 50)).toBe(21);
-    expect(sim.marketWage('manager', 100)).toBe(50);
+    expect(sim.marketWage('operator', 50)).toBe(29.5);
+    expect(sim.marketWage('manager', 100)).toBe(70);
   });
-  it('legacy points are the square root of valuation over 10k', () => {
-    expect(sim.legacyPointsFor(1_000_000)).toBe(10);
+  it('legacy points are the square root of valuation over 20k', () => {
+    expect(sim.legacyPointsFor(2_000_000)).toBe(10);
+    expect(sim.legacyPointsFor(1_000_000)).toBe(7);
     expect(sim.legacyPointsFor(0)).toBe(0);
   });
   it('calendar lays out the year', () => {

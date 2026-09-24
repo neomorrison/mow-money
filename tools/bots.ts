@@ -266,6 +266,16 @@ function staffing(state: GameState, bot: BotProfile, backlog: number): void {
   }
 }
 
+/** Post-job small talk: skilled bots remember what each archetype likes. */
+function chat(state: GameState, bot: BotProfile, rng: Rng, clientId: string): void {
+  const c = state.clients.find((x) => x.id === clientId);
+  if (!c || !sim.canSmallTalk(state, clientId)) return;
+  const arch = ARCHETYPE_BY_ID[sim.houseInfo(state, c.houseId).archetypeId];
+  const tones: Tone[] = ['friendly', 'professional', 'direct', 'funny'];
+  const best = tones.reduce((a, b) => ((arch?.tone[b] ?? 0) > (arch?.tone[a] ?? 0) ? b : a), 'professional' as Tone);
+  sim.smallTalk(state, clientId, rng.chance(bot.toneSkill) ? best : rng.pick(tones));
+}
+
 function doOwnerJobs(state: GameState, bot: BotProfile, rng: Rng): number {
   let done = 0;
   for (let guard = 0; guard < 40; guard++) {
@@ -278,6 +288,7 @@ function doOwnerJobs(state: GameState, bot: BotProfile, rng: Rng): number {
     if (bot.autopilot && job.canAutopilot) {
       const r = sim.autopilotJob(state, job.clientId);
       if ('error' in r) { if (r.error.includes('broke')) continue; break; }
+      chat(state, bot, rng, job.clientId);
       done++;
       continue;
     }
@@ -286,6 +297,7 @@ function doOwnerJobs(state: GameState, bot: BotProfile, rng: Rng): number {
     const q = Math.max(20, Math.min(100, rng.normal(bot.qMu, bot.qSigma)));
     const res = sim.debug.syntheticResult(spec, q);
     sim.completeManualJob(state, spec, res);
+    chat(state, bot, rng, job.clientId);
     done++;
   }
   return done;

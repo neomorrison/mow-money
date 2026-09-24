@@ -40,10 +40,11 @@ export {
 
 // ---------------------------------------------------------------- jobs
 export { jobsToday, assignJob, buildMowJob, completeManualJob, abandonManualJob, autopilotJob } from './jobs';
-export { computeQuality } from './quality';
+export { computeQuality, stripeBonus } from './quality';
 
 // ---------------------------------------------------------------- door to door
 export { knock, applyPitchOutcome, answerChance, knockMinutes, pitchContext } from './knock';
+export { smallTalk, canSmallTalk, TONES } from './smalltalk';
 
 // ---------------------------------------------------------------- clients
 export function clientById(state: GameState, clientId: Id): Client | undefined { return state.clients.find((c) => c.id === clientId); }

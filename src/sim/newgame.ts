@@ -3,7 +3,7 @@ import type { GameState, OwnedItem } from '../core/types';
 import { hashSeed, makeRng } from '../core/rng';
 import { SAVE_VERSION } from '../core/save';
 import { TOWNS } from '../data/hoods';
-import { DAY_START, FUEL_START } from './constants';
+import { DAY_START, FUEL_START, PRICE_SCALE } from './constants';
 import { initialWeather } from './weather';
 import { makeRivals } from './market';
 import { refreshCandidates } from './staff';
@@ -49,7 +49,7 @@ export function newGame(opts: { companyName: string; color: string; seed?: numbe
     days: [],
     stats: { jobs: 0, manualJobs: 0, revenue: 0, bestQ: 0, perfectJobs: 0, deals: 0, knocks: 0, m2Mowed: 0, peakClients: 0, damages: 0 },
     achievements: [],
-    flags: { tutorial: 1 },
+    flags: { tutorial: 1, econ2: 1 },
     legacy: { points: opts.legacyPoints ?? 0, perks, runs: opts.runs ?? 0 },
     nextId: 10,
   };
@@ -105,6 +105,22 @@ export function migrate(state: GameState): GameState {
     if (!Number.isFinite(it.sharpness)) it.sharpness = 1;
     if (!Number.isFinite(it.condition)) it.condition = 1;
     if (it.crewId === undefined) it.crewId = null;
+  }
+  // Economy v2 (arcade pay): older saves get their contract prices and wages lifted to the new scale once.
+  if (!state.flags.econ2) {
+    const r2 = (x: number) => Math.round(x * 100) / 100;
+    for (const c of state.clients) {
+      if (c.commercial) continue;
+      c.price = r2(c.price * PRICE_SCALE);
+      c.R = r2(c.R * PRICE_SCALE);
+    }
+    for (const b of state.bids) {
+      if (b.status !== 'open') continue;
+      b.fairPrice = r2(b.fairPrice * PRICE_SCALE);
+    }
+    for (const e of state.staff) e.wage = r2(e.wage * 1.4);
+    for (const k of state.candidates) { k.wage = r2(k.wage * 1.4); k.askWage = r2(k.askWage * 1.4); }
+    state.flags.econ2 = 1;
   }
   // The owner must always have a mower and a vehicle.
   const has = (uid: string | null) => !!uid && state.items.some((i) => i.uid === uid);

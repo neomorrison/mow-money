@@ -9,7 +9,7 @@ import { HOOD_BY_ID, splitHoodKey } from '../data/hoods';
 import { EQUIPMENT_BY_ID } from '../data/equipment';
 import { lotForLawn } from '../world/property';
 import { hashSeed } from '../core/rng';
-import { DAY_END, SETUP_MINUTES, TIME_SCALE, BLADE_WEAR_PER_1000, WET_PENALTY } from './constants';
+import { DAY_END, SETUP_MINUTES, TIME_SCALE, BLADE_WEAR_PER_1000, WET_PENALTY, RAPPORT_START, STREAK_MAX, STREAK_TIP, DAMAGE_SATISFACTION } from './constants';
 import { calendar } from './calendar';
 import { addLedger, firstName, hasPerk, hasRole, itemByUid, logDay, r1, r2, withRng } from './util';
 import { canCarry, carryError, effectiveStripe, ownerKit, workMinutes } from './kit';
@@ -124,6 +124,7 @@ export function buildMowJob(state: GameState, clientId: Id | null): MowJobSpec |
   const bagCapable = ['push21', 'selfprop', 'walkbehind', 'reel'].includes(kit.mowerSpec.id);
   const bagging = !!kit.mowerSpec.bagging || (state.items.some((i) => i.specId === 'bagger') && bagCapable && kit.mowerSpec.id !== 'reel');
   const striping = state.items.some((i) => i.specId === 'stripekit');
+  const autoStripe = striping || hasPerk(state, 'straight_lines');
   const perks = state.owner.perks.filter((p) => ['quick_feet', 'edge_master', 'straight_lines', 'autopilot_pro'].includes(p));
   const tutorialFlag = Number(state.flags.tutorial) || 0;
   if (clientId === null) {
@@ -136,7 +137,8 @@ export function buildMowJob(state: GameState, clientId: Id | null): MowJobSpec |
       ownerName: 'You', portrait: '', lot, propertySeed: hashSeed(state.seed, 'practice'), grassIn: 4.2, targetIn: 3,
       expectation: 70, wantsStripes: false, mower: kit.mowerSpec, sharpness: kit.mower.sharpness, trimmer: kit.trimmerSpec,
       blower: kit.blowerSpec, bagging, striping, weather: state.weather.today, season: cal.season, startMinute: start,
-      timeScale: TIME_SCALE, wet, leaves, perks, notes: jobNotes(state, null, 3), tutorial: tutorialFlag > 0,
+      timeScale: TIME_SCALE, wet, leaves, perks, notes: jobNotes(state, null, 3), tutorial: tutorialFlag > 0, autoStripe,
+      companyColor: state.company.color, vehicleModel: kit.vehicleSpec.model,
     };
   }
   const c = state.clients.find((x) => x.id === clientId);
@@ -157,13 +159,49 @@ export function buildMowJob(state: GameState, clientId: Id | null): MowJobSpec |
     wantsStripes: c.wantsStripes || c.addOns.includes('stripes'), mower: kit.mowerSpec, sharpness: kit.mower.sharpness,
     trimmer: kit.trimmerSpec, blower: kit.blowerSpec, bagging, striping, weather: state.weather.today, season: cal.season,
     startMinute: start, timeScale: TIME_SCALE, wet, leaves, perks, notes: jobNotes(state, c, targetIn),
-    tutorial: tutorialFlag === 2,
+    tutorial: tutorialFlag === 2, premiumStripes: c.addOns.includes('stripes'), autoStripe,
+    companyColor: state.company.color, vehicleModel: kit.vehicleSpec.model,
   };
 }
 
 // ---------------------------------------------------------------- shared service pipeline
 export interface ServiceResult {
-  paid: number; tip: number; sBefore: number; sAfter: number; trialResult?: 'signed' | 'declined'; removed: boolean; events: string[];
+  paid: number; tip: number; tipParts: { label: string; amount: number }[]; sBefore: number; sAfter: number;
+  trialResult?: 'signed' | 'declined'; removed: boolean; events: string[];
+}
+
+/**
+ * Tips (section 10). Performance: quality over expectation, a streak of good owner jobs and visible stripes.
+ * Charm: how much the client likes you (rapport, raised by small talk). Everything scales with the
+ * archetype's tip habit.
+ */
+export function rollTip(rng: Rng, c: Client, q: number, tipMult: number, opts: { stripe?: number; streak?: number }): { tip: number; parts: { label: string; amount: number }[] } {
+  const parts: { label: string; amount: number }[] = [];
+  if (c.commercial || tipMult <= 0) return { tip: 0, parts };
+  const margin = q - c.expectation;
+  if (margin < -4) return { tip: 0, parts };
+  const rapport = clamp(c.rapport ?? RAPPORT_START, 0, 1);
+  const p = clamp(0.3 + 0.03 * margin + 0.35 * rapport, 0.05, 0.92);
+  if (!rng.chance(p)) return { tip: 0, parts };
+  const perf = c.price * (rng.range(0.05, 0.1) + 0.005 * clamp(margin, 0, 25)) * tipMult;
+  parts.push({ label: margin >= 10 ? 'Outstanding work' : margin >= 0 ? 'Great work' : 'Thanks', amount: perf });
+  const streak = Math.min(STREAK_MAX, opts.streak ?? 0);
+  if (streak >= 2) parts.push({ label: `Hot streak x${streak}`, amount: perf * STREAK_TIP * streak });
+  const stripe = opts.stripe ?? 0;
+  if (stripe >= 0.5) parts.push({ label: 'Stripes', amount: c.price * 0.05 * stripe * (c.wantsStripes ? 2 : 1) * tipMult });
+  if (rapport >= 0.3) parts.push({ label: 'Charm', amount: c.price * 0.08 * rapport * tipMult });
+  const out = parts.map((x) => ({ label: x.label, amount: r2(x.amount) })).filter((x) => x.amount >= 0.5);
+  const tip = r2(out.reduce((a, x) => a + x.amount, 0));
+  return tip >= 1 ? { tip, parts: out } : { tip: 0, parts: [] };
+}
+
+/** Rapport drifts with each visit: good work and no damage build it, bad visits erode it. */
+function driftRapport(c: Client, q: number, damages: number): void {
+  let r = c.rapport ?? RAPPORT_START;
+  if (q >= c.expectation) r += 0.02;
+  else if (q < c.expectation - 10) r -= 0.03;
+  r -= 0.05 * damages;
+  c.rapport = r2(clamp(r, 0, 1));
 }
 
 export function officeBonus(state: GameState): number {
@@ -171,13 +209,14 @@ export function officeBonus(state: GameState): number {
 }
 
 /** Apply one completed service to a client. Handles pay, tips, satisfaction, rating, history, trials, contracts. */
-export function applyService(state: GameState, rng: Rng, c: Client, q: number, opts: { by: string; damages: number; cutHeight: number; coverage: number; manual: boolean; ledger?: boolean }): ServiceResult {
+export function applyService(state: GameState, rng: Rng, c: Client, q: number, opts: { by: string; damages: number; cutHeight: number; coverage: number; manual: boolean; ledger?: boolean; stripe?: number; streak?: number }): ServiceResult {
   const info = houseInfo(state, c.houseId);
   const sBefore = c.satisfaction;
   const events: string[] = [];
   const address = c.commercial ? siteTitle(state, c) : info.address;
   let paid = 0;
   let tip = 0;
+  let tipParts: { label: string; amount: number }[] = [];
   let trialResult: 'signed' | 'declined' | undefined;
   // Grass after the cut.
   const h = hs(state, c.houseId);
@@ -197,25 +236,22 @@ export function applyService(state: GameState, rng: Rng, c: Client, q: number, o
       state.stats.jobs += 1;
       logDay(state, (l) => l.jobs.push({ clientId: c.id, address, by: opts.by, q: r1(q), paid: 0 }));
       removeClient(state, c, 'Declined after the trial', null, false);
-      return { paid: 0, tip: 0, sBefore, sAfter: sBefore, trialResult, removed: true, events };
+      return { paid: 0, tip: 0, tipParts, sBefore, sAfter: sBefore, trialResult, removed: true, events };
     }
   } else {
     paid = r2(c.price * officeBonus(state));
     if (opts.ledger !== false) addLedger(state, paid, 'job', `${address}`);
-    const e = c.expectation;
-    if (q >= e + 8) {
-      const p = Math.min(0.6, 0.25 + 0.02 * (q - e - 8));
-      if (rng.chance(p)) {
-        const arch = ARCHETYPE_BY_ID[info.archetypeId];
-        tip = r2(c.price * rng.range(0.10, 0.25) * (arch?.tipMult ?? 1));
-        if (tip >= 1) {
-          if (opts.ledger !== false) addLedger(state, tip, 'tip', `Tip, ${address}`);
-          events.push(`Tip: $${tip.toFixed(2)}`);
-          state.flags.tips = (Number(state.flags.tips) || 0) + 1;
-        } else tip = 0;
-      }
+    const arch = ARCHETYPE_BY_ID[info.archetypeId];
+    const t = rollTip(rng, c, q, arch?.tipMult ?? 1, { stripe: opts.stripe, streak: opts.streak });
+    if (t.tip > 0) {
+      tip = t.tip;
+      tipParts = t.parts;
+      if (opts.ledger !== false) addLedger(state, tip, 'tip', `Tip, ${address}`);
+      events.push(`Tip: $${tip.toFixed(2)}`);
+      state.flags.tips = (Number(state.flags.tips) || 0) + 1;
     }
   }
+  driftRapport(c, q, opts.damages);
   applyServiceSatisfaction(state, c, q, opts.damages);
   c.lastServiceDay = state.day;
   c.nextDueDay = state.day + c.freq;
@@ -242,7 +278,7 @@ export function applyService(state: GameState, rng: Rng, c: Client, q: number, o
   st.m2Mowed = Math.round(st.m2Mowed + info.lawnM2 * cov);
   st.damages += opts.damages;
   if (opts.ledger !== false) logDay(state, (l) => l.jobs.push({ clientId: c.id, address, by: opts.by, q: r1(q), paid: r2(paid + tip) }));
-  return { paid, tip, sBefore, sAfter: c.satisfaction, trialResult, removed: false, events };
+  return { paid, tip, tipParts, sBefore, sAfter: c.satisfaction, trialResult, removed: false, events };
 }
 
 // ---------------------------------------------------------------- owner jobs
@@ -269,6 +305,14 @@ function advanceTutorial(state: GameState): void {
   const t = Number(state.flags.tutorial) || 0;
   if (t === 2 && state.stats.manualJobs > 0) state.flags.tutorial = 3;
   if (Number(state.flags.tutorial) === 3 && state.stats.knocks >= 3) state.flags.tutorial = 4;
+}
+
+/** Owner job streak: consecutive jobs that met the client's expectation without damage. */
+function nextStreak(state: GameState, c: Client, q: number, damages: number): number {
+  const ok = q >= c.expectation && damages === 0;
+  const n = ok ? (Number(state.flags.streak) || 0) + 1 : 0;
+  state.flags.streak = n;
+  return n;
 }
 
 function achievementsEvents(state: GameState): string[] {
@@ -311,7 +355,9 @@ export function completeManualJob(state: GameState, spec: MowJobSpec, result: Mo
   const info = houseInfo(state, c.houseId);
   const damageCost = chargeDamages(state, result.damages ?? [], info.address);
   return withRng(state, (rng) => {
-    const svc = applyService(state, rng, c, q, { by: 'You', damages: (result.damages ?? []).length, cutHeight: result.cutHeightIn, coverage: result.coverage, manual: true });
+    const nDamage = (result.damages ?? []).length;
+    const streak = c.trial ? Number(state.flags.streak) || 0 : nextStreak(state, c, q, nDamage);
+    const svc = applyService(state, rng, c, q, { by: 'You', damages: nDamage, cutHeight: result.cutHeightIn, coverage: result.coverage, manual: true, stripe: result.stripe, streak });
     state.stats.manualJobs += 1;
     o.jobsToday += 1;
     const xp = Math.round(q / 5);
@@ -325,10 +371,13 @@ export function completeManualJob(state: GameState, spec: MowJobSpec, result: Mo
     const reaction = reactionLine(rng, {
       mood, archetypeId: info.archetypeId, firstName: firstName(info.ownerName),
       damageThing: firstDamage ? DAMAGE_THING[firstDamage.kind] : undefined, trial: svc.trialResult,
+      stripes: result.stripe >= 0.6,
     });
+    if (streak >= 3) events.push(`Hot streak: ${streak} great jobs in a row.`);
     return {
       clientId: c.id, q, breakdown, paid: svc.paid, tip: svc.tip, satisfactionBefore: svc.sBefore, satisfactionAfter: svc.sAfter,
       reaction, mood, xp, minutes, fuelCost, damageCost, trialResult: svc.trialResult, events,
+      tipParts: svc.tipParts, streak, canTalk: !svc.removed,
     };
   });
 }
@@ -360,7 +409,7 @@ export function abandonManualJob(state: GameState, spec: MowJobSpec, result: Mow
   if (spec.clientId) {
     const c = state.clients.find((x) => x.id === spec.clientId);
     if (c && (result.damages ?? []).length) {
-      c.satisfaction = r1(clamp(c.satisfaction - 12 * (result.damages ?? []).length, 0, 100));
+      c.satisfaction = r1(clamp(c.satisfaction - DAMAGE_SATISFACTION * (result.damages ?? []).length, 0, 100));
       c.damages += (result.damages ?? []).length;
     }
   }
@@ -420,7 +469,8 @@ export function autopilotJob(state: GameState, clientId: Id): JobOutcome | { err
     wearItem(kit.vehicle, travel / 60, 0);
     const fuelCost = ownerFuel(state, mowH * 0.7, mowH * 0.3, travel);
     if (fuelCost > 0) addLedger(state, -fuelCost, 'fuel', 'Fuel');
-    const svc = applyService(state, rng, c, q, { by: 'You (autopilot)', damages: 0, cutHeight: sim.cut, coverage: 0.98, manual: false });
+    const streak = nextStreak(state, c, q, 0);
+    const svc = applyService(state, rng, c, q, { by: 'You (autopilot)', damages: 0, cutHeight: sim.cut, coverage: 0.98, manual: false, streak });
     o.jobsToday += 1;
     const xp = Math.round(q / 20);
     const levels = addXp(state, xp);
@@ -435,6 +485,7 @@ export function autopilotJob(state: GameState, clientId: Id): JobOutcome | { err
     return {
       clientId: c.id, q, breakdown, paid: svc.paid, tip: svc.tip, satisfactionBefore: svc.sBefore, satisfactionAfter: svc.sAfter,
       reaction, mood, xp, minutes: est, fuelCost, damageCost: 0, trialResult: svc.trialResult, events,
+      tipParts: svc.tipParts, streak, canTalk: !svc.removed,
     };
   });
 }

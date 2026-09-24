@@ -5,8 +5,9 @@ export const TIME_SCALE = 0.2;         // game minutes per real second in the 3D
 export const DAY_START = 450;          // 07:30
 export const DAY_END = 1170;           // 19:30
 export const SETUP_MINUTES = 6;
-export const KNOCK_OPEN = 480;         // 08:00
-export const KNOCK_EARLY = 540;        // before 09:00 the answer chance is halved
+export const KNOCK_OPEN = 450;         // doors can be knocked from the start of the day
+export const KNOCK_EARLY = 510;        // before 08:30 fewer people answer (x0.6)
+export const KNOCK_MORNING = 540;      // 08:30 to 09:00 a few still sleep in (x0.85)
 export const EVENING_START = 1020;     // 17:00
 
 export const SEASONS: Season[] = ['spring', 'summer', 'fall', 'winter'];
@@ -21,6 +22,12 @@ export const DROUGHT_GROWTH = 0.6;
 export const GRASS_MAX = 12;
 export const STRESS_THRESHOLD = 0.40;
 export const STRESS_POINTS = 60;
+
+// ---------------------------------------------------------------- stripes (section 9): a bonus, never a requirement
+export const STRIPE_BONUS = 5;           // max bonus points for any client
+export const STRIPE_BONUS_WANTED = 8;    // max bonus for clients who love stripes
+export const PREMIUM_STRIPE_MIN = 0.35;  // premium stripes add-on: below this the client notices
+export const PREMIUM_STRIPE_PENALTY = 4;
 
 // ---------------------------------------------------------------- weather (section 5)
 export const WEATHER_KINDS: WeatherKind[] = ['sunny', 'cloudy', 'rain', 'storm', 'heat'];
@@ -39,6 +46,7 @@ export const ADDON_MULT: Record<AddOn, number> = { bagging: 1.12, stripes: 1.10,
 export const BIWEEKLY_MULT = 1.2;
 export const KIND_MULT = { residential: 1, estate: 1, commercial: 1.15, park: 1.15, golf: 2.5 } as const;
 export const SQFT_PER_M2 = 10.764;
+export const PRICE_SCALE = 1.3;        // arcade pay: every fair price is scaled by this
 
 // ---------------------------------------------------------------- equipment (section 12)
 export const SHARPEN_COST = 6;
@@ -57,7 +65,7 @@ export const CHURN_WEEK_MAX = 0.6;
 export const CHURN_MID = 35;
 export const CHURN_SCALE = 7;
 export const RIVAL_CHURN_MULT = 1.3;
-export const DAMAGE_SATISFACTION = 12;
+export const DAMAGE_SATISFACTION = 7;
 
 // ---------------------------------------------------------------- leads and marketing (section 11)
 export const LEAD_DAYS = 7;
@@ -72,12 +80,12 @@ export const MARKETING_DAYS = 14;
 
 // ---------------------------------------------------------------- staff (section 14)
 export const WAGE_TABLE: Record<StaffRole, { base: number; perSkill: number }> = {
-  operator: { base: 15, perSkill: 0.12 },
-  lead: { base: 18, perSkill: 0.14 },
-  sales: { base: 16, perSkill: 0.12 },
-  mechanic: { base: 20, perSkill: 0.12 },
-  office: { base: 17, perSkill: 0.10 },
-  manager: { base: 30, perSkill: 0.20 },
+  operator: { base: 21, perSkill: 0.17 },
+  lead: { base: 25, perSkill: 0.2 },
+  sales: { base: 22, perSkill: 0.17 },
+  mechanic: { base: 28, perSkill: 0.17 },
+  office: { base: 24, perSkill: 0.14 },
+  manager: { base: 42, perSkill: 0.28 },
 };
 export const PAID_HOURS = 10;
 export const CREW_CAPACITY = 600;
@@ -99,4 +107,9 @@ export const LOAN_TERMS = [13, 26, 52];
 
 // ---------------------------------------------------------------- owner (section 17)
 export const XP_DEAL = 25;
+
+// ---------------------------------------------------------------- tips (section 10)
+export const STREAK_MAX = 5;           // performance tips grow with a streak of jobs that meet expectations
+export const STREAK_TIP = 0.08;        // +8 percent of the performance tip per streak step
+export const RAPPORT_START = 0.25;
 export const XP_BID = 60;

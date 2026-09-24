@@ -333,11 +333,13 @@ export class Hud {
       ['Grass', `${fmtIn(s.grassIn)}`],
       ['Cut to', `${fmtIn(s.targetIn)}`],
       ['Weather', WEATHER_LABEL[s.weather] + (s.wet ? ', wet' : '')],
-      ['Stripes', s.wantsStripes ? 'Wanted' : 'Optional'],
+      ['Stripes', `${s.autoStripe ? 'Auto, ' : ''}${s.wantsStripes ? 'big bonus' : 'bonus'}`],
       ['Mower', extra.mowerName],
     ];
     const notes = [...s.notes];
     if (s.kind === 'leaves' || s.leaves > 0.05) notes.push('Leaves are down. Mulch them with the mower and clear the drive.');
+    if (s.autoStripe) notes.push('Striping roller on: stripes lay themselves wherever you mow.');
+    else if (s.wantsStripes) notes.push('Straight back-and-forth passes along the lane guides earn a stripe bonus.');
     sheet.innerHTML = `
       <h2>${esc(s.address)}</h2>
       <div class="mmj-sub">${esc(s.ownerName ? s.ownerName : 'Practice lawn')}${s.tutorial ? ' · First job' : ''}</div>

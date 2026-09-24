@@ -25,30 +25,32 @@ export function mostUsedDeck(f: GrassField, heights: number[], current: number):
 }
 
 /**
- * Stripe score in 0..1 before multiplying by the stripe strength.
+ * Stripe score in 0..1 before the stripe strength of the gear. Generous on purpose: stripes are a bonus.
  *
- * 1. Parallel share P: among lawn cells whose last cut came from the mower, the share whose heading axis
- *    (heading mod 180 degrees) lies within 15 degrees of the dominant axis. The dominant axis is the peak
- *    of a 5 degree histogram of those axes, smoothed over its neighbors.
- * 2. Alternation A: scan lines perpendicular to the dominant axis every meter. Along each line, consecutive
- *    mowed cells with the same travel direction (forward or back along the axis) form a band. A band is good
- *    when it is no wider than 1.7 deck widths and either at least 0.4 deck widths wide or cut short by an
- *    obstacle or the lot line. A = good band length / total band length. Bands that never alternate
- *    (everything mowed the same way) or scribbles (tiny bands) score low.
- * The score is 0.5 * P + 0.5 * A.
+ * Only open lawn counts: cells in the edge band around beds, trees, walls and the house are ignored, since
+ * nobody can drive straight lines around a gnome.
+ * 1. Parallel share P: among open lawn cells whose last cut came from the mower, the share whose heading
+ *    axis (heading mod 180 degrees) lies within 20 degrees of the dominant axis.
+ * 2. Alternation A: scan lines perpendicular to the dominant axis. Along each line, consecutive mowed cells
+ *    with the same travel direction form a band. A band is good when it is at most 2.4 deck widths and
+ *    either at least 0.3 deck widths or cut short by an obstacle or the lot line. A = good / total length.
+ * raw = 0.55 P + 0.45 A, remapped so an honest effort (raw 0.85) scores full marks and a scribble scores
+ * near zero, then scaled by how much of the open lawn was mowed.
  */
 export function stripePattern(f: GrassField, deckWidth: number): { score: number; parallel: number; alternation: number; axis: number } {
   const bins = new Float64Array(36);
-  let mowed = 0;
+  let mowed = 0, open = 0;
   for (let k = 0; k < f.n; k++) {
-    if (f.surf[k] !== LAWN || f.cutBy[k] !== 1) continue;
+    if (f.surf[k] !== LAWN || f.edge[k]) continue;
+    open++;
+    if (f.cutBy[k] !== 1) continue;
     const h = f.heading[k];
     if (h !== h) continue;
     let a = h % Math.PI; if (a < 0) a += Math.PI;
     bins[Math.min(35, Math.floor(a / (Math.PI / 36)))]++;
     mowed++;
   }
-  if (mowed < Math.max(20, f.lawnCells * 0.05)) return { score: 0, parallel: 0, alternation: 0, axis: 0 };
+  if (mowed < Math.max(20, open * 0.05)) return { score: 0, parallel: 0, alternation: 0, axis: 0 };
   let peak = 0, peakV = -1;
   for (let b = 0; b < 36; b++) {
     const v = bins[b] + 0.6 * (bins[(b + 1) % 36] + bins[(b + 35) % 36]);
@@ -58,7 +60,7 @@ export function stripePattern(f: GrassField, deckWidth: number): { score: number
   let sx = 0, sy = 0;
   const center = (peak + 0.5) * (Math.PI / 36);
   for (let k = 0; k < f.n; k++) {
-    if (f.surf[k] !== LAWN || f.cutBy[k] !== 1) continue;
+    if (f.surf[k] !== LAWN || f.edge[k] || f.cutBy[k] !== 1) continue;
     const h = f.heading[k];
     if (h !== h) continue;
     let d = ((h - center) % Math.PI + Math.PI * 1.5) % Math.PI - Math.PI / 2;
@@ -66,10 +68,10 @@ export function stripePattern(f: GrassField, deckWidth: number): { score: number
     sx += Math.cos(2 * h); sy += Math.sin(2 * h);
   }
   const axis = sx || sy ? Math.atan2(sy, sx) / 2 : center;
-  const tol = (15 * Math.PI) / 180;
+  const tol = (20 * Math.PI) / 180;
   let par = 0;
   for (let k = 0; k < f.n; k++) {
-    if (f.surf[k] !== LAWN || f.cutBy[k] !== 1) continue;
+    if (f.surf[k] !== LAWN || f.edge[k] || f.cutBy[k] !== 1) continue;
     const h = f.heading[k];
     if (h !== h) continue;
     const d = ((h - axis) % Math.PI + Math.PI * 1.5) % Math.PI - Math.PI / 2;
@@ -88,8 +90,8 @@ export function stripePattern(f: GrassField, deckWidth: number): { score: number
     vmin = Math.min(vmin, v); vmax = Math.max(vmax, v); umin = Math.min(umin, u); umax = Math.max(umax, u);
   }
   const du = f.cs;
-  const maxBand = 1.7 * deckWidth, minBand = 0.4 * deckWidth;
-  const alignTol = (25 * Math.PI) / 180;
+  const maxBand = 2.4 * deckWidth, minBand = 0.3 * deckWidth;
+  const alignTol = (30 * Math.PI) / 180;
   let good = 0, total = 0;
   const vStep = Math.max(1, (vmax - vmin) / 400);
   for (let v = vmin + 0.5; v < vmax; v += vStep) {
@@ -104,9 +106,9 @@ export function stripePattern(f: GrassField, deckWidth: number): { score: number
     for (let u = umin; u <= umax; u += du) {
       const x = ax * v + px * u, z = az * v + pz * u;
       const k = f.idx(x, z);
-      if (k < 0 || f.surf[k] !== LAWN) { close(true); startWall = true; continue; }
+      if (k < 0 || f.surf[k] !== LAWN || f.edge[k]) { close(true); startWall = true; continue; }
       const h = f.heading[k];
-      if (f.cutBy[k] !== 1 || h !== h) { close(false); startWall = false; continue; }
+      if (f.cutBy[k] !== 1 || h !== h) { close(true); startWall = true; continue; }
       const c = Math.cos(h - axis);
       if (Math.abs(c) < Math.cos(alignTol)) { close(false); startWall = false; continue; }
       const s = c > 0 ? 1 : -1;
@@ -116,7 +118,9 @@ export function stripePattern(f: GrassField, deckWidth: number): { score: number
     close(true);
   }
   const A = total > 0 ? good / total : 0;
-  return { score: 0.5 * P + 0.5 * A, parallel: P, alternation: A, axis };
+  const raw = 0.55 * P + 0.45 * A;
+  const done = Math.min(1, mowed / Math.max(1, open * 0.85));
+  return { score: clamp01((raw - 0.25) / 0.6) * done, parallel: P, alternation: A, axis };
 }
 
 export function computeResult(s: ScoreState, completed: boolean, withStripe = true): MowJobResult {
@@ -138,7 +142,8 @@ export function computeResult(s: ScoreState, completed: boolean, withStripe = tr
   const sd = lawn ? Math.sqrt(Math.max(0, sum2 / lawn - mean * mean)) : 0;
   const debris = f.debrisTotal();
   const denom = f.initialDebris + f.generatedDebris;
-  const stripe = withStripe ? stripePattern(f, s.deckWidth).score * Math.min(1, Math.max(0, s.stripeStrength)) : 0;
+  // Gear matters a little (a roller lays bolder stripes), technique matters more.
+  const stripe = withStripe ? stripePattern(f, s.deckWidth).score * (0.75 + 0.25 * Math.min(1, Math.max(0, s.stripeStrength))) : 0;
   const gameMinutes = s.realSeconds * s.timeScale;
   const areaCut = f.uniqueCutCells * f.cellArea;
   return {
@@ -165,20 +170,19 @@ const round = (x: number, d: number) => Math.round(x * 10 ** d) / 10 ** d;
 
 /** Local implementation of docs/DESIGN.md section 9, used only when sim.computeQuality throws. */
 export function estimateQuality(spec: MowJobSpec, r: MowJobResult): QualityBreakdown {
-  const stripeTerm = spec.wantsStripes ? r.stripe : Math.max(r.stripe, 0.7);
   const parts = [
-    { label: 'Coverage', value: 50 * r.coverage ** 3, max: 50 },
-    { label: 'Even cut', value: 14 * r.evenness, max: 14 },
-    { label: 'Edges', value: 12 * r.trim, max: 12 },
-    { label: 'Cleanup', value: 8 * r.cleanup, max: 8 },
-    { label: 'Stripes', value: 10 * stripeTerm, max: 10 },
-    { label: 'No clumps', value: 6 * (1 - r.clumps), max: 6 },
+    { label: 'Coverage', value: 54 * r.coverage ** 3, max: 54 },
+    { label: 'Evenness', value: 15 * r.evenness, max: 15 },
+    { label: 'Edges', value: 13 * r.trim, max: 13 },
+    { label: 'Cleanup', value: 10 * r.cleanup, max: 10 },
+    { label: 'No clumps', value: 8 * (1 - r.clumps), max: 8 },
   ];
   const raw = parts.reduce((a, p) => a + p.value, 0);
   const cap = spec.mower.qualityCap ?? 100;
   const sharpAdj = raw * (0.88 + 0.12 * spec.sharpness);
   const capped = sharpAdj > cap;
-  let q = Math.min(cap, sharpAdj);
+  const bonus = (spec.wantsStripes ? 8 : 5) * (spec.striping ? 1.25 : 1) * clamp01(r.stripe);
+  let q = Math.min(cap, sharpAdj) + bonus;
   const penalties: { label: string; points: number }[] = [];
   const stress = 60 * Math.max(0, r.removedFraction - 0.4);
   if (stress > 0.05) penalties.push({ label: 'Grass was scalped', points: stress });
@@ -188,6 +192,6 @@ export function estimateQuality(spec: MowJobSpec, r: MowJobResult): QualityBreak
   for (const d of r.damages) penalties.push({ label: d.label, points: d.points });
   for (const p of penalties) q -= p.points;
   q = Math.max(0, Math.min(100, q));
-  const stars = Math.max(1, Math.min(5, 1 + (4 * (q - 45)) / 50));
+  const stars = Math.max(1, Math.min(5, 1 + (4 * (q - 40)) / 50));
   return { q, stars, parts, penalties, capped };
 }

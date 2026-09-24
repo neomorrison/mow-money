@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { HouseInfo, PitchContext } from '../src/core/types';
 import { ARCHETYPE_BY_ID } from '../src/data/archetypes';
 import { ARCHETYPE_LINES, GENERIC, PLAYER, NOBODY_HOME, NO_SOLICITING } from '../src/data/dialogue';
+import { resetRecentLines } from '../src/data/pick';
 import {
   availablePoints, counterPrice, createNegotiation, pAccept, previewBucket, reservation, step, offerTotal,
   type NegotiationState,
@@ -153,6 +154,7 @@ describe('negotiation', () => {
 
   it('is deterministic for a seed', () => {
     const run = (seed: number) => {
+      resetRecentLines();
       const n = createNegotiation(ctxFor('dude'), seed);
       step(n, { type: 'opener', tone: 'funny' });
       step(n, { type: 'point', id: 'free_trial' });

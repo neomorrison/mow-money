@@ -50,10 +50,10 @@ const within = (name: string, xs: number[], lo: number, hi: number) => {
   const m = median(xs);
   checks.push({ name: `${name} in ${lo} to ${hi}`, ok: m >= lo && m <= hi, value: `median ${m === 99999 ? 'never' : m}` });
 };
-within('solid: gas push mower day', of('solid', (r) => r.m.gas), 2, 6);
-within('solid: truck day', of('solid', (r) => r.m.truck), 20, 45);
-within('solid: first hire day', of('solid', (r) => r.m.hire), 30, 70);
-within('solid: zero-turn day', of('solid', (r) => r.m.zeroTurn), 40, 90);
+within('solid: gas push mower day', of('solid', (r) => r.m.gas), 0, 3);
+within('solid: truck day', of('solid', (r) => r.m.truck), 7, 20);
+within('solid: first hire day', of('solid', (r) => r.m.hire), 18, 50);
+within('solid: zero-turn day', of('solid', (r) => r.m.zeroTurn), 15, 45);
 checks.push({ name: 'solid: solvent (min cash > -$500)', ok: rows.filter((r) => r.bot === 'solid').every((r) => r.m.minCash > -500), value: rows.filter((r) => r.bot === 'solid').map((r) => Math.round(r.m.minCash)).join(', ') });
 checks.push({ name: 'novice: never bankrupt (min cash > -$500)', ok: rows.filter((r) => r.bot === 'novice').every((r) => r.m.minCash > -500), value: rows.filter((r) => r.bot === 'novice').map((r) => Math.round(r.m.minCash)).join(', ') });
 checks.push({ name: 'novice: slower than solid (truck later or valuation lower)', ok: median(of('novice', (r) => r.valuation)) < median(of('solid', (r) => r.valuation)), value: `${money(median(of('novice', (r) => r.valuation)))} vs ${money(median(of('solid', (r) => r.valuation)))}` });

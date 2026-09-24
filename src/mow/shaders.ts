@@ -44,6 +44,9 @@ export interface GrassUniforms {
   uLongB: { value: THREE.Color };
   uTip: { value: THREE.Color };
   uCellSize: { value: number };
+  uGuide: { value: THREE.Vector4 };     // lane guides: axis direction (x, z), spacing, offset
+  uGuideOn: { value: number };          // 0..1
+  uCleanHi: { value: number };          // 0..1 highlight dirty hardscape (blower out, or missed-spot flash)
 }
 
 export function seasonPalette(season: Season, weather: string) {
@@ -75,6 +78,9 @@ export function makeGrassUniforms(field: GrassField, season: Season, weather: st
     uLongB: { value: new THREE.Color(p.longB) },
     uTip: { value: new THREE.Color(p.tip) },
     uCellSize: { value: field.cs },
+    uGuide: { value: new THREE.Vector4(0, 1, 1, 0) },
+    uGuideOn: { value: 0 },
+    uCleanHi: { value: 0 },
   };
 }
 
@@ -83,6 +89,19 @@ uniform sampler2D uTexA; uniform sampler2D uTexB; uniform sampler2D uTexC;
 uniform vec2 uOrigin; uniform vec2 uSize; uniform float uTime; uniform float uDeck; uniform float uFlash;
 uniform float uWet; uniform float uDull; uniform float uStripeGain; uniform float uCellSize;
 uniform vec3 uCutA; uniform vec3 uCutB; uniform vec3 uLongA; uniform vec3 uLongB; uniform vec3 uTip;
+uniform vec4 uGuide; uniform float uGuideOn; uniform float uCleanHi;
+`;
+
+/** Lane guides: faint chalk lines on grass that has not been cut yet, one deck width apart. */
+export const GUIDE_GLSL = /* glsl */`
+vec3 mmGuide(vec3 col, vec2 wp, float cut) {
+  if (uGuideOn < 0.001 || cut > 0.5) return col;
+  vec2 perp = vec2(uGuide.y, -uGuide.x);
+  float u = dot(wp, perp) - uGuide.w;
+  float d = abs(fract(u / uGuide.z + 0.5) - 0.5) * uGuide.z;
+  float line = 1.0 - smoothstep(0.03, 0.075, d);
+  return mix(col, vec3(0.96, 0.96, 0.78), line * 0.42 * uGuideOn);
+}
 `;
 
 /** Lawn color from height, cut state and stripe lean. Shared by ground (and mirrored in the blade shader). */
@@ -135,6 +154,7 @@ function groundFragment(): string {
       float cr = sqrt(C.r);
       lawn = mix(lawn, vec3(0.26, 0.36, 0.13), smoothstep(1.0 - cr * 0.7, 1.02 - cr * 0.7, cn) * 0.9);
     }
+    lawn = mmGuide(lawn, wp, A.a);
     float missed = step(uDeck + 0.5, h);
     lawn = mix(lawn, vec3(1.0, 0.55, 0.12), missed * uFlash * (0.55 + 0.45 * sin(uTime * 9.0)));
     col += lawn * B.r;
@@ -160,10 +180,11 @@ function groundFragment(): string {
   if (waterW > 0.001) col += mix(vec3(0.18, 0.42, 0.5), vec3(0.3, 0.6, 0.66), mmNoise(wp * 0.8 + uTime * 0.1)) * waterW;
 
   if (C.g > 0.004) {
-    // clippings: thin green slivers on concrete and in beds
+    // clippings: a green film plus thin slivers on concrete and in beds, dense enough to read from the chase camera
     float dg = sqrt(C.g), t1, t2;
-    float d1 = mmScatter(wp, 0.045, dg * 0.9, 3.2, t1);
-    float d2 = mmScatter(wp + 0.021, 0.037, dg * 0.7, 3.6, t2);
+    col = mix(col, vec3(0.44, 0.6, 0.16), clamp(dg * 1.5, 0.0, 0.62));
+    float d1 = mmScatter(wp, 0.045, min(1.0, dg * 1.6), 3.2, t1);
+    float d2 = mmScatter(wp + 0.021, 0.037, min(1.0, dg * 1.3), 3.6, t2);
     col = mix(col, mix(vec3(0.36, 0.55, 0.16), vec3(0.55, 0.7, 0.26), t1), d1 * 0.95);
     col = mix(col, mix(vec3(0.4, 0.58, 0.18), vec3(0.62, 0.66, 0.3), t2), d2 * 0.9);
   }
@@ -176,6 +197,12 @@ function groundFragment(): string {
     vec3 c2 = t2 < 0.4 ? vec3(0.78, 0.26, 0.1) : t2 < 0.75 ? vec3(0.95, 0.72, 0.25) : vec3(0.55, 0.34, 0.16);
     col = mix(col, c1 * (0.9 + 0.2 * t2), l1);
     col = mix(col, c2 * 0.95, l2);
+  }
+  if (uCleanHi > 0.001 && B.g > 0.001) {
+    // dirty concrete glows while the blower is out, so it is obvious what is left to clean
+    // same threshold the cleanup score uses (traces under 0.03 do not count)
+    float dirt = smoothstep(0.02, 0.07, C.g + C.b) * B.g;
+    col = mix(col, vec3(1.0, 0.58, 0.1), dirt * uCleanHi * (0.6 + 0.25 * sin(uTime * 6.0)));
   }
   col *= 1.0 - uWet * 0.14;
   vec4 diffuseColor = vec4(col, opacity);
@@ -190,7 +217,7 @@ export function createGroundMaterial(u: GrassUniforms): THREE.MeshLambertMateria
       .replace('#include <common>', '#include <common>\nvarying vec3 vMmWorld;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvMmWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vMmWorld;\n' + UNIFORM_DECL + NOISE_GLSL + LAWN_GLSL)
+      .replace('#include <common>', '#include <common>\nvarying vec3 vMmWorld;\n' + UNIFORM_DECL + NOISE_GLSL + LAWN_GLSL + GUIDE_GLSL)
       .replace('vec4 diffuseColor = vec4( diffuse, opacity );', groundFragment());
   };
   m.customProgramCacheKey = () => 'mm-ground';

@@ -1,6 +1,7 @@
 // Minimap: the lot seen from above with the street at the bottom, mirrored so left and right match the
 // chase view from the street. Cut, uncut and missed cells, the mower, the operator and the vehicle.
 import { GrassField, LAWN, HARD, BED, BUILDING, SOLID, SAND, WATER } from './field';
+import type { Obstacle } from '../world/property';
 
 export class Minimap {
   private base: HTMLCanvasElement;
@@ -11,6 +12,10 @@ export class Minimap {
   private cssH = 176;
   private dpr = 1;
   private fit = { s: 1, ox: 0, oy: 0 };
+  private hazards: Obstacle[] = [];
+
+  /** Breakable props shown as dots so they can be steered around. */
+  setHazards(list: Obstacle[]) { this.hazards = list; }
 
   constructor(private canvas: HTMLCanvasElement, private f: GrassField) {
     this.base = document.createElement('canvas');
@@ -36,7 +41,7 @@ export class Minimap {
   }
 
   /** Rebuild the base image from the field (a few times per second). */
-  redraw(deckIn: number, flash: boolean) {
+  redraw(deckIn: number, flash: boolean, dirtHi = false) {
     const f = this.f, d = this.img.data;
     const lim = deckIn + 0.5;
     const nx = f.nx, nz = f.nz;
@@ -61,8 +66,13 @@ export class Minimap {
           }
           case HARD: {
             r = 222; g = 216; b = 204;
-            const dbr = Math.min(1, f.debris[k] + f.leaves[k]);
-            if (dbr > 0.05) { r = r - 90 * dbr; g = g - 30 * dbr; b = b - 110 * dbr; }
+            const dbr = Math.min(1, (f.debris[k] + f.leaves[k]) * 3);
+            // clippings and leaves on concrete show bright so the cleanup is easy to find
+            if (dbr > 0.08) {
+              const t = Math.min(1, 0.45 + dbr * 0.55);
+              const [cr, cg, cb] = dirtHi ? [255, 128, 24] : [120, 170, 50];
+              r = r + (cr - r) * t; g = g + (cg - g) * t; b = b + (cb - b) * t;
+            }
             break;
           }
           case BED: r = 140; g = 92; b = 58; break;
@@ -79,7 +89,7 @@ export class Minimap {
   }
 
   /** Composite the base with live markers (every frame or two). */
-  draw(mower: { x: number; z: number; h: number }, walker: { x: number; z: number; h: number } | null, vehicle: { x: number; z: number }) {
+  draw(mower: { x: number; z: number; h: number }, walker: { x: number; z: number; h: number } | null, vehicle: { x: number; z: number }, broken?: Set<Obstacle>) {
     const c = this.ctx, f = this.f;
     c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     c.clearRect(0, 0, this.cssW, this.cssH);
@@ -95,6 +105,16 @@ export class Minimap {
     c.beginPath();
     c.arc(px(vehicle.x), Math.min(this.cssH - 4, py(vehicle.z)), 4, 0, Math.PI * 2);
     c.fill();
+    for (const o of this.hazards) {
+      if (broken?.has(o)) continue;
+      c.fillStyle = o.kind === 'sprinkler' ? '#2a8fd8' : o.kind === 'gnome' ? '#e0392b' : '#f2b01e';
+      c.strokeStyle = '#ffffff';
+      c.lineWidth = 1;
+      c.beginPath();
+      c.arc(px(o.x), py(o.z), 2.6, 0, Math.PI * 2);
+      c.fill();
+      c.stroke();
+    }
     const arrow = (x: number, z: number, h: number, col: string, size: number) => {
       c.save();
       c.translate(px(x), py(z));

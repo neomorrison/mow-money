@@ -165,9 +165,12 @@ export interface Settings {
   cameraMode: 'chase' | 'top';
   showHints: boolean;
   reducedMotion: boolean;
+  laneAssist: boolean;      // steering snaps to straight lines along the lot
+  laneGuides: boolean;      // faint lane lines on uncut grass
 }
 export const DEFAULT_SETTINGS: Settings = {
   master: 0.8, music: 0.5, sfx: 0.8, grassDensity: 'medium', shadows: true, cameraMode: 'chase', showHints: true, reducedMotion: false,
+  laneAssist: true, laneGuides: true,
 };
 export function loadSettings(): Settings {
   try {

@@ -75,14 +75,14 @@ Persistence: tomorrow = today with probability 0.35, otherwise a draw from the b
 Market fair price per mow for a lawn of `A` square feet (lawn only, not the lot):
 
 ```
-fair(A) = 20 + 0.052 * A^0.725              (weekly service)
+fair(A) = 1.3 * (20 + 0.052 * A^0.725)      (weekly service; 1.3 = PRICE_SCALE, arcade pay)
 biweekly = fair * 1.20                      (taller grass, fewer visits)
 commercial = fair * 1.15                    (parks too; golf fairways fair * 2.5, mowed like three visits)
 ```
 
-Examples: 3,800 sq ft = $41, 11,000 = $64, 22,000 = $93, 43,560 (1 acre) = $140. Sublinear on purpose: big lawns are cheaper per square foot, matching real pricing and rewarding productive equipment.
+Examples: 3,800 sq ft = $53, 11,000 = $84, 22,000 = $121, 43,560 (1 acre) = $182. Sublinear on purpose: big lawns are cheaper per square foot, matching real pricing and rewarding productive equipment.
 
-Add-ons (multiply the per-mow price): bagging +12 percent, premium stripes +10 percent (the client then expects a stripe score of at least 0.7), fertilizer program +8 percent (growth x1.15, satisfaction +2 per visit for enthusiasts).
+Add-ons (multiply the per-mow price): bagging +12 percent, premium stripes +10 percent (the stripe bonus counts at 8 points and a job with a stripe score under 0.35 costs 4 points), fertilizer program +8 percent (growth x1.15, satisfaction +2 per visit for enthusiasts).
 
 Displayed area is square feet: `sqft = m2 * 10.764`.
 
@@ -99,7 +99,7 @@ patience   = archetype.patience + {-1, 0, +1}                negotiation rounds
 anchor     = archetype.anchor + U(-0.05, 0.05)               opening counter as a fraction of R
 ```
 
-Answer probability when you knock depends on the archetype's `home` profile (day 08:00 to 17:00, evening 17:00 to 19:30) and on weekends (x1.3, capped at 0.95). Warm leads answer at least 85 percent of the time. Before 09:00 the chance is halved. A knock costs 4 minutes (2 with the Door Pro perk).
+Answer probability when you knock depends on the archetype's `home` profile (day 08:00 to 17:00, evening 17:00 to 19:30) and on weekends (x1.3, capped at 0.95). Warm leads answer at least 85 percent of the time. Doors can be knocked from 07:30: before 08:30 the chance is x0.6, from 08:30 to 09:00 x0.85. A knock costs 4 minutes (2 with the Door Pro perk).
 
 Not everyone who opens the door wants a service. Before the pitch starts, a DIY owner turns you away with `pNo = clamp(0.65 - 0.12 * (h - 3), 0.10, 0.70)` where `h` is their grass height (tall lawns are the best prospects), a rival's client with 0.40 (budget rival) or 0.55 (premium rival), and warm leads or HOA-letter houses with 0.05. A refusal makes the house cold for 3 days. A rejected pitch blocks a second pitch the same day.
 
@@ -142,14 +142,13 @@ The UI shows the neighborhood fair price as a hint. The Read the Room perk shows
 The 3D job returns raw measurements (`MowJobResult`). Quality `Q` in [0, 100]:
 
 ```
-stripeTerm = wantsStripes ? stripe : max(stripe, 0.7)
-Qraw = 100 * ( 0.50 * coverage^3
-             + 0.14 * evenness
-             + 0.12 * trim
-             + 0.08 * cleanup
-             + 0.10 * stripeTerm
-             + 0.06 * (1 - clumps) )
+Qraw = 100 * ( 0.54 * coverage^3
+             + 0.15 * evenness
+             + 0.13 * trim
+             + 0.10 * cleanup
+             + 0.08 * (1 - clumps) )
 Q = min(mower.qualityCap, Qraw * (0.88 + 0.12 * sharpness))
+    + stripeBonus                               5 * stripe (8 * stripe if they love stripes), x1.25 with the striping kit
     - 60 * max(0, removedFraction - 0.40)       stress
     - 6 if the grass was wet
     - 8 * max(0, |cutHeight - targetIn| - 0.5)      cut too high or too low (inches)
@@ -159,11 +158,13 @@ clamped to [0, 100]
 
 Coverage counts lawn cells whose final height is at most the deck height used + 0.5 in, so raising the deck on an overgrown lawn trades the stress penalty for the height mismatch penalty (and an easier next visit). Clients state their preferred height `targetIn` (2.5 to 3.5 in residential, 1.5 to 2.5 commercial, 0.5 on golf fairways).
 
+**Stripes are a bonus, never a requirement.** The bonus is added after the mower's quality cap, so good stripes lift a job past what the gear alone allows. The stripe score only looks at open lawn (the edge band around beds, trees and walls is ignored), accepts passes within 20 degrees of the main axis and bands up to 2.4 deck widths, and is remapped so an honest back-and-forth pattern scores full marks. Gear adds up to a quarter (`score * (0.75 + 0.25 * stripeStrength)`). Help for players: lane assist (steering settles onto the lot axes when no turn is held), lane guides (faint chalk lines on uncut grass one deck width apart), and auto stripes (the Striping Roller Kit or the Straight Lines perk lay alternating bands by position, however the mower is driven).
+
 Coverage is cubed on purpose: 95 percent coverage gives 0.857 of that term, 90 percent gives 0.729. Missing a tenth of a lawn is what clients notice first.
 
 Star rating for reputation: `stars = clamp(1 + 4 * (Q - 40) / 50, 1, 5)` (Q 90 is five stars, Q 80 is 4.2, Q 70 is 3.4).
 
-**Autopilot** (owner, simulated job): allowed after one manual job on the property. `Q ~ Normal(min(cap, bestManualQ - 3 + perkBonus), 4)` with the same stress and wet penalties. Crew jobs: `mu = min(cap, 58 + 40 * skill/100 * moraleFactor)` (+4 with a crew lead, +3 with a Perfectionist, -8 without a trimmer, -4 without a blower, -10 * (1 - sharpness), -10 * max(0, 0.7 - stripe) for clients who want stripes), `sigma = 12 - 8 * skill/100`, `moraleFactor = 0.85 + 0.15 * morale/100`, where skill weights a crew lead double. Autopilot and crews raise the deck on overgrown lawns to stay under the one-third rule and take the height mismatch penalty instead.
+**Autopilot** (owner, simulated job): allowed after one manual job on the property. `Q ~ Normal(min(cap, bestManualQ - 3 + perkBonus), 4)` with the same stress and wet penalties. Crew jobs: `mu = min(cap, 58 + 40 * skill/100 * moraleFactor)` (+4 with a crew lead, +3 with a Perfectionist, -8 without a trimmer, -4 without a blower, -10 * (1 - sharpness), +3 * stripe, +5 * stripe for clients who love stripes), `sigma = 12 - 8 * skill/100`, `moraleFactor = 0.85 + 0.15 * morale/100`, where skill weights a crew lead double. Autopilot and crews raise the deck on overgrown lawns to stay under the one-third rule and take the height mismatch penalty instead.
 
 ## 10. Satisfaction, churn, referrals, reputation
 
@@ -172,7 +173,7 @@ Per completed service:
 ```
 target = clamp(70 + 1.5 * (Q - E), 0, 100)
 S = S + 0.40 * (target - S)
-S -= 12 per damage incident
+S -= 7 per damage incident
 ```
 
 Doing exactly what they expect settles a client at 70 (content). Ten points above settles at 85 (delighted). Twenty below settles at 40 (at risk).
@@ -192,7 +193,10 @@ S = 70 loses 0.4 percent a week, S = 55 3.4 percent, S = 40 20 percent, S = 25 4
 
 Referrals: each week each client has `p = 0.10 * clamp((S - 72) / 28, 0, 1) * (1 + 0.5 * yardSign)` to create a warm lead at a non-client house in the same neighborhood (T +0.25 in the pitch).
 
-Tips: when `Q >= E + 8`, `P(tip) = min(0.6, 0.25 + 0.02 * (Q - E - 8))`, amount `price * U(0.10, 0.25) * archetype.tipMult`.
+Tips come from performance and charm. Each client has a rapport `r` in [0, 1] (starts at `0.15 + 0.45 * T` from the pitch, +0.02 per visit that meets E, -0.03 per visit 10 under E, -0.05 per damage).
+
+- Performance tip, rolled on every paid visit with `Q >= E - 4`: `P = clamp(0.3 + 0.03 * (Q - E) + 0.35 * r, 0.05, 0.92)`. Amount, all times `archetype.tipMult`: work `price * (U(0.05, 0.10) + 0.005 * clamp(Q - E, 0, 25))`, hot streak `work * 0.08 * min(5, streak)` from a streak of 2 owner jobs that met E without damage, stripes `price * 0.05 * stripe` when stripe >= 0.5 (doubled for stripe lovers), charm `price * 0.08 * r` when r >= 0.3.
+- Small talk (once per visit, on the result screen): the player picks a tone and the archetype's tone affinity decides the reply. Liked: r +0.10, satisfaction +2, charm tip `price * (0.04 + 0.12 * r) * (0.5 + 0.5 * tipMult)`. Neutral: r +0.03, 35 percent chance of `price * 0.035 * (0.5 + 0.5 * tipMult)`. Disliked: r -0.06, satisfaction -2. A job 10 or more under E cuts the charm tip to 40 percent. The Charmer perk turns dislikes into neutral, doubles rapport gains and adds 50 percent to charm tips.
 
 Reputation is a Bayesian average of recent stars with a 3.0 prior worth 5 ratings and recency weight 0.98 per rating, over the last 60 ratings:
 
@@ -244,7 +248,7 @@ Neighborhoods are big on purpose: a hard-working owner can serve about 100 weekl
 
 Commercial, municipal and golf properties are won through bids (section 15), not door knocking.
 
-Branches: once the home town is well served, the player can open a branch in a new town (Riverside $60,000, Cedar Falls $150,000, Summit Ridge $400,000). A branch is a new set of the same neighborhood templates with new seeds. Branch towns need an Operations Manager because the owner cannot commute there daily.
+Branches: once the home town is well served, the player can open a branch in a new town (Riverside $120,000, Cedar Falls $300,000, Summit Ridge $750,000). A branch is a new set of the same neighborhood templates with new seeds. Branch towns need an Operations Manager because the owner cannot commute there daily.
 
 ## 14. Staff
 
@@ -252,12 +256,12 @@ Roles, market wage per hour for skill `s` in [0, 100]:
 
 | Role | Wage | Job |
 |---|---|---|
-| operator | 15 + 0.12 s | mows on a crew |
-| lead | 18 + 0.14 s | crew lead, +4 quality, can drive the truck |
-| sales | 16 + 0.12 s + 8 percent commission on first-month revenue | knocks doors in an assigned neighborhood |
-| mechanic | 20 + 0.12 s | sharpens and repairs overnight, breakdowns x0.4 |
-| office | 17 + 0.10 s | dispatches due jobs to crews every morning, +2 percent collected revenue |
-| manager | 30 + 0.20 s | Operations Manager: hires replacements, buys fuel, runs branches |
+| operator | 21 + 0.17 s | mows on a crew |
+| lead | 25 + 0.20 s | crew lead, +4 quality, can drive the truck |
+| sales | 22 + 0.17 s + 8 percent commission on first-month revenue | knocks doors in an assigned neighborhood |
+| mechanic | 28 + 0.17 s | sharpens and repairs overnight, breakdowns x0.4 |
+| office | 24 + 0.14 s | dispatches due jobs to crews every morning, +2 percent collected revenue |
+| manager | 42 + 0.28 s | Operations Manager: hires replacements, buys fuel, runs branches |
 
 Paid 10 hours per workday. Crews are a vehicle, a mower, a trimmer and a blower plus one or more members, one of them a lead or the owner. Crew daily capacity is 600 minutes minus travel, jobs sorted by overdue first, then by neighborhood.
 
@@ -279,7 +283,7 @@ Bids: each unlocked commercial or municipal neighborhood posts a request for pro
 - Insurance: required before the first hire or commercial bid. $30 per week plus $10 per employee. Damage claims above a $100 deductible are covered.
 - Taxes: at each season end, 15 percent of positive season profit.
 - Book value: purchase price * 0.92 per season owned. Resale at 80 percent of book value.
-- Valuation: `max(0, annualProfit) * (2 + 0.5 * rep + retention) + bookValue + cash - debt`, where annual profit is the operating net of the trailing 98 days once a full year of history exists (before that, the last 28 days extrapolated to 98), and retention is the share of clients kept over the last 28 days.
+- Valuation: `max(0, annualProfit) * (1.5 + 0.45 * rep + retention) + bookValue + cash - debt`, where annual profit is the operating net of the trailing 98 days once a full year of history exists (before that, the last 28 days extrapolated to 98), and retention is the share of clients kept over the last 28 days.
 - Operating profit excludes equipment purchases and sales, loan principal and branch costs. Loan interest counts.
 - Negative cash costs an overdraft fee of 0.1 percent a day (at least $2).
 
@@ -293,7 +297,8 @@ XP: a manual job gives `Q / 5`, an autopilot job `Q / 20`, a deal 25, a won bid 
 | Sales | Read the Room | see the mood bucket before offering |
 | Sales | Closer | +1 patience |
 | Sales | Door Pro | knocks take 2 minutes, answer rate +10 percent |
-| Craft | Straight Lines | +0.10 stripe score |
+| Sales | Charmer | small talk never falls flat, charm tips +50 percent, rapport grows twice as fast |
+| Craft | Straight Lines | auto stripes without the striping kit |
 | Craft | Edge Master | trimmer radius +30 percent |
 | Craft | Autopilot Pro | +5 autopilot quality |
 | Craft | Quick Feet | +10 percent manual speed |
@@ -311,7 +316,7 @@ XP: a manual job gives `Q / 5`, an autopilot job `Q / 20`, a deal 25, a won bid 
 
 ## 19. Legacy (prestige)
 
-"Sell the company" at any time after year 1 converts valuation into legacy points `floor(sqrt(valuation / 10000))`. Legacy perks carry into new games: Seed Money (+$1,500, 1 point), Local Legend (start near 3.8 reputation, 2), Head Start (+1 skill point, 1), Fleet Discount (first truck -25%, 2), Gas Start (a gas push mower, 1), Quick Knocks (knocks take one minute less, 1).
+"Sell the company" at any time after year 1 converts valuation into legacy points `floor(sqrt(valuation / 20000))`. Legacy perks carry into new games: Seed Money (+$1,500, 1 point), Local Legend (start near 3.8 reputation, 2), Head Start (+1 skill point, 1), Fleet Discount (first truck -25%, 2), Gas Start (a gas push mower, 1), Quick Knocks (knocks take one minute less, 1).
 
 ## 20. Presentation rules
 
@@ -321,7 +326,7 @@ XP: a manual job gives `Q / 5`, an autopilot job `Q / 20`, a deal 25, a won bid 
 
 ## 21. Implementation notes (sim)
 
-- **Owner clock.** `owner.minute` runs from 450 to 1170. Every action that costs time (travel, knock, pitch, job, sharpening) is refused with "Not enough daylight." when it would pass 19:30. Knocking opens at 08:00 (the tutorial neighbor excepted). End Day resets the clock to 07:30 at the HQ.
+- **Owner clock.** `owner.minute` runs from 450 to 1170. Every action that costs time (travel, knock, pitch, job, sharpening) is refused with "Not enough daylight." when it would pass 19:30. Knocking is open all day (fewer answers before 09:00). End Day resets the clock to 07:30 at the HQ.
 - **Transport.** The owner's vehicle capacity must cover the owner's mower `transportSize`, otherwise manual and autopilot jobs are refused. The bicycle carries push mowers only. New mowers join the kit when they beat the current mower and fit the vehicle; otherwise they wait in the garage.
 - **Due jobs.** A client is due from `nextDueDay - 1` (one day early allowed). `daysOverdue = max(0, today - nextDueDay - 1)`. Sundays and storm days carry no lateness penalty. Winter pauses every contract until spring day 1.
 - **Grass.** Client lawns are tracked in the save and grown each night with that day's weather. Other lawns are a pure function of the house seed and the day (DIY cycle, rivals every 7 days), so they are never saved.

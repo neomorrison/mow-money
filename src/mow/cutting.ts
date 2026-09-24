@@ -12,6 +12,8 @@ export interface DeckParams {
   mulching: boolean;
   discharge: number;           // 0..1 share of clippings thrown out the side chute
   wet: boolean;
+  autoStripe: boolean;         // striping kit or perk: the lean follows fixed bands along z, not the heading
+  bandW: number;               // auto stripe band width (m)
   frame: number;
   time: number;
   dt: number;
@@ -134,7 +136,11 @@ export function cutDeck(f: GrassField, p: DeckParams, out: DeckOutcome): void {
         if (p.bagActive) out.bagAdd += (before - f.leaves[k]) * cellA * 0.15;
         changedC = true;
       }
-      f.heading[k] = p.heading;
+      if (p.autoStripe) {
+        // bands across x, alternating direction: perfect stripes however the mower was driven
+        const band = Math.floor((f.x0 + (i + 0.5) * cs) / p.bandW);
+        f.heading[k] = (band & 1) === 0 ? 0 : Math.PI;
+      } else f.heading[k] = p.heading;
       f.lean[k] = p.stripeVis;
       f.cutBy[k] = 1;
       f.markA(k);

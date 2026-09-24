@@ -117,6 +117,13 @@ export interface VehicleParams {
   zeroTurn: boolean;
   carSteer: boolean;            // ride-ons without zero turn steer like a car
   accel: number;
+  assist?: number;              // lane assist: snap to the lot axes within this angle (radians), 0 or undefined = off
+}
+
+/** Nearest lot axis (0, 90, 180 or 270 degrees) to a heading. */
+export function nearestAxis(h: number): number {
+  const q = Math.PI / 2;
+  return wrapAngle(Math.round(h / q) * q);
 }
 
 const wrapAngle = (a: number) => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
@@ -137,8 +144,13 @@ export class Body {
     const vmax = p.maxSpeed * speedMult;
     let wantV = 0, wantW = 0;
     const turnRate = p.turnRate * (inp.slow ? 0.55 : 1);
-    if (inp.target !== null && inp.mag > 0.05) {
-      const err = wrapAngle(inp.target - this.heading);
+    const assist = p.assist ?? 0;
+    const stick = inp.target !== null && inp.mag > 0.05;
+    if (stick) {
+      let target = inp.target!;
+      // Lane assist: a stick held roughly along the lawn locks onto the axis, so passes come out straight.
+      if (assist > 0) { const ax = nearestAxis(target); if (Math.abs(wrapAngle(target - ax)) < assist * 1.3) target = ax; }
+      const err = wrapAngle(target - this.heading);
       const aerr = Math.abs(err);
       if (p.carSteer) {
         // car-like: always roll forward while turning toward the target
@@ -162,6 +174,15 @@ export class Body {
     this.v += (wantV - this.v) * Math.min(1, dt * (Math.abs(wantV) < Math.abs(this.v) ? a * 1.6 : a));
     this.omega += (wantW - this.omega) * Math.min(1, dt * 10);
     this.heading = wrapAngle(this.heading + this.omega * dt);
+    // Lane assist on keys: with no steering held, the heading settles onto the nearest lot axis.
+    if (assist > 0 && !stick && inp.steer === 0 && Math.abs(this.v) > 0.15) {
+      const ax = nearestAxis(this.heading);
+      const e = wrapAngle(ax - this.heading);
+      if (Math.abs(e) < assist) {
+        this.heading = wrapAngle(this.heading + e * Math.min(1, dt * 6));
+        this.omega *= Math.max(0, 1 - dt * 8);
+      }
+    }
     this.x += Math.sin(this.heading) * this.v * dt;
     this.z += Math.cos(this.heading) * this.v * dt;
   }
