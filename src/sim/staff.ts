@@ -183,12 +183,16 @@ export function weeklyQuits(state: GameState, rng: Rng): { name: string; event: 
 }
 
 export function payWages(state: GameState): number {
+  // crews rained out by a storm draw half pay (sales reps stay in too; office, mechanic and managers work)
+  const storm = state.weather.today === 'storm';
+  const stoodDown = (e: Employee) => storm && (!!e.crewId || e.role === 'sales');
   let total = 0;
   for (const e of state.staff) {
     if (e.laidOff) continue;
-    total += e.wage * PAID_HOURS;
+    total += e.wage * PAID_HOURS * (stoodDown(e) ? 0.5 : 1);
   }
-  if (total > 0) addLedger(state, -total, 'wages', `Wages, ${state.staff.filter((e) => !e.laidOff).length} staff`);
+  const n = state.staff.filter((e) => !e.laidOff).length;
+  if (total > 0) addLedger(state, -total, 'wages', `Wages, ${n} staff${storm && state.staff.some((e) => !e.laidOff && stoodDown(e)) ? ' (storm: half pay for crews)' : ''}`);
   return total;
 }
 

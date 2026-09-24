@@ -79,7 +79,7 @@ export function assignJob(state: GameState, clientId: Id, assignee: 'owner' | Id
   if (assignee !== 'owner' && !state.crews.some((cr) => cr.id === assignee)) return { ok: false, message: 'Unknown crew.' };
   c.assignee = assignee;
   const crew = state.crews.find((cr) => cr.id === assignee);
-  return { ok: true, message: assignee === 'owner' ? 'You will do this one.' : `Assigned to ${crew?.name ?? 'crew'}.` };
+  return { ok: true, message: assignee === 'owner' ? 'You will do this one.' : `Assigned to ${crew?.name ?? 'crew'}. They mow it when you end the day.` };
 }
 
 // ---------------------------------------------------------------- manual job spec

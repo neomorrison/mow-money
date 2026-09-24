@@ -216,8 +216,18 @@ function crewCandidates(state: GameState, crew: Crew): Client[] {
   return state.clients.filter((c) => c.assignee === crew.id && isDue(state, c));
 }
 
+/** Why a ready crew will not go out today (storm, Sunday), or '' when it works tonight. */
+export function crewDayOff(state: GameState): string {
+  const cal = calendar(state.day);
+  if (cal.season === 'winter') return '';
+  if (!cal.isWorkday) return 'Sunday: crews are off. Their jobs wait for Monday.';
+  if (state.weather.today === 'storm') return 'Storm: crews stay home today. Their jobs move to tomorrow with no late penalty, and crews get half pay.';
+  return '';
+}
+
 export function crewPlans(state: GameState): CrewPlan[] {
   const winter = calendar(state.day).season === 'winter';
+  const off = crewDayOff(state);
   return state.crews.map((crew) => {
     const problem = winter ? 'Off for winter.' : crewProblem(state, crew);
     const cands = winter ? [] : crewCandidates(state, crew);
@@ -225,6 +235,7 @@ export function crewPlans(state: GameState): CrewPlan[] {
     return {
       crewId: crew.id, jobs: route.jobs.map((j) => ticketFor(state, j.client)), minutes: route.minutes, capacity: CREW_CAPACITY,
       ready: problem === '', problem: problem || (route.skipped.length ? `${route.skipped.length} ${route.skipped.length === 1 ? 'job does' : 'jobs do'} not fit today.` : ''),
+      note: problem ? undefined : off || (route.jobs.length ? 'Mows this route when you end the day.' : undefined),
     };
   });
 }
@@ -254,7 +265,7 @@ export function autoDispatch(state: GameState): ActionResult {
   if (calendar(state.day).season === 'winter') return { ok: true, message: 'Nothing to dispatch in winter.' };
   reclaimJobs(state);
   const ready = state.crews.filter((c) => crewProblem(state, c) === '');
-  if (!ready.length) return { ok: false, message: 'No crew is ready.' };
+  if (!ready.length) return { ok: false, message: 'No crew is ready. A crew needs a member, a mower and a vehicle that can carry it.' };
   const readyIds = new Set(ready.map((c) => c.id));
   // Jobs for the owner or for crews that cannot work are up for grabs.
   const pool = state.clients.filter((c) => isDue(state, c) && (c.assignee === 'owner' || !readyIds.has(c.assignee)));
@@ -283,7 +294,14 @@ export function autoDispatch(state: GameState): ActionResult {
       }
     }
   }
-  return { ok: true, message: moved ? `${moved} ${moved === 1 ? 'job' : 'jobs'} dispatched.` : 'Nothing to dispatch.' };
+  const off = crewDayOff(state);
+  const later = off ? ' They start on the next working day.' : ' They mow them when you end the day.';
+  if (moved) return { ok: true, message: `${moved} ${moved === 1 ? 'job' : 'jobs'} handed to your crews.${later}` };
+  const withCrews = state.clients.filter((c) => isDue(state, c) && c.assignee !== 'owner').length;
+  const leftMine = state.clients.filter((c) => isDue(state, c) && c.assignee === 'owner').length;
+  if (leftMine) return { ok: true, message: `No room left in your crews' day for your ${leftMine} remaining ${leftMine === 1 ? 'job' : 'jobs'}.` };
+  if (withCrews) return { ok: true, message: `Your crews already have every due job (${withCrews}).${later}` };
+  return { ok: true, message: 'No jobs due right now.' };
 }
 
 // ---------------------------------------------------------------- daily run

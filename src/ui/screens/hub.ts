@@ -100,6 +100,7 @@ function crewPlanCard(p: CrewPlan, s: GameState): Raw {
       <div class="ui-row" style="justify-content:space-between"><b>${name}</b><span class="ui-small ui-muted">${plural(p.jobs.length, 'job')} · ${duration(p.minutes)} of ${duration(p.capacity)}</span></div>
       ${bar(load, { cls: 'ui-bar--thin', color: load > 1 ? 'var(--ui-red)' : load > 0.85 ? 'var(--ui-orange)' : 'var(--ui-g-500)' })}
       ${!p.ready || p.problem ? html`<div class="ui-small ui-bad ui-strong" style="margin-top:4px">${raw(icon('alert'))} ${p.problem || 'Not ready'}</div>` : ''}
+      ${p.note ? html`<div class="ui-tiny ui-muted ui-strong" style="margin-top:4px">${raw(icon(/^Storm|^Sunday/.test(p.note) ? 'storm' : 'moon'))} ${p.note}</div>` : ''}
     </div>
   </div>`;
 }
@@ -280,7 +281,8 @@ function render(): Raw {
       <div class="ui-card ui-card--flat">
         <div class="ui-card__head"><span class="ui-card__title">${raw(icon('truck'))}Crews today</span><button class="ui-link" data-click="nav" data-id="crew">Crew</button></div>
         ${plans.length ? html`<div class="ui-col" style="gap:12px">${plans.map((p) => crewPlanCard(p, s))}</div>` : html`<p class="ui-muted ui-small">No routes planned.</p>`}
-        ${s.staff.some((e) => e.role === 'office') ? '' : html`<button class="ui-btn ui-btn--sm ui-btn--soft ui-btn--block" style="margin-top:12px" data-click="dispatch">${raw(icon('route'))}Dispatch open jobs</button>`}
+        ${s.staff.some((e) => e.role === 'office') ? html`<p class="ui-tiny ui-muted" style="margin-top:10px">Your office manager hands your leftover jobs to crews at the end of the day.</p>` : html`<button class="ui-btn ui-btn--sm ui-btn--soft ui-btn--block" style="margin-top:12px" data-click="dispatch" data-tip="Moves jobs assigned to you onto crews with room today. You can also pick a crew on each job card.">${raw(icon('route'))}Hand my due jobs to crews</button>
+        <p class="ui-tiny ui-muted" style="margin-top:8px">Crews mow their routes when you end the day. Pick who does a job on its card.</p>`}
       </div>` : ''}
 
       ${kitCard(s)}
